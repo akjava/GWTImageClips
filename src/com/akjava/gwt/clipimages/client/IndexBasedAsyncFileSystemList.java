@@ -3,6 +3,7 @@ package com.akjava.gwt.clipimages.client;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -156,19 +157,9 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		
 		@Override
 		public void add(int index, T indexBasedElement) {
-			LogUtils.log("add-index:"+index);
-			LogUtils.log("add-element:"+indexBasedElement.toString());
 			
-			LogUtils.log("before");
-			for(T obj:rawList){
-				LogUtils.log(obj.toString());
-			}
+			delegate().add(index, indexBasedElement);//no effect when call rawList directly
 			
-			delegate().add(index, indexBasedElement);
-			LogUtils.log("after");
-			for(T obj:rawList){
-				LogUtils.log(obj.toString());
-			}
 			
 			addAsync(indexBasedElement);
 			//add need call update index on write-end,need new-id(filename)
@@ -176,7 +167,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		}
 		@Override
 		public boolean add(T element) {
-			LogUtils.log("add:");
+			
 			//add need call update index on write-end,need new-id(filename)
 			boolean b= delegate().add(element);
 			addAsync(element);
@@ -247,19 +238,28 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		public void addAsync(final T data){
 			checkState(initialized);
 			checkNotNull(data);
-			final String fileName=getFileName(data);
+			
 			fileSystem.addData(converter.convert(data), new WriteCallback() {
 				
 				@Override
 				public void onError(String message, Object option) {
-					onAddFaild(fileName,createErrorMessage(message,option));
+					//there still not have name
+					onAddFaild(null,createErrorMessage(message,option));
+					
+					//remove auto-matically
+					delegate().remove(data);
+					updateIndexAsync();
+					onDataUpdate();
+					
+					cleanUnusedFiles();
 				}
 				
 				@Override
 				public void onWriteEnd(FileEntry file) {
+					
 					setFileName(data,file.getName());//file-name first
 					updateIndexAsync();
-					onAddComplete(fileName);//no care index update faild or not
+					onAddComplete(file.getName());//no care index update faild or not
 					onDataUpdate();
 				}
 			});
@@ -271,7 +271,9 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		public void updateIndexAsync(){
 			checkState(initialized);
 			String indexText=createIndex();
-			LogUtils.log("indexText:"+indexText);
+			//LogUtils.log("indexText:"+indexText);
+			//TODO check-space first
+			
 			fileSystem.updateData(INDEX_FILE_NAME, indexText,new WriteCallback(){
 
 				@Override
@@ -302,6 +304,31 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 	
 		public abstract void onReadFaild(String fileName);
 		
+		public void read(final String fileName,final ReadListener<T> listener) {
+			fileSystem.readText(fileName, new ReadStringCallback() {
+				@Override
+				public void onError(String message, Object option) {
+					listener.onError("File not found:"+fileName+","+message+","+option);
+				}
+				
+				@Override
+				public void onReadString(String text, FileEntry file) {
+					try{
+					T data=converter.reverse().convert(text);
+					setFileName(data, fileName);//need set filename on read
+					listener.onRead(data);
+					}catch(Exception e){
+						listener.onError("convert faild:"+fileName+","+e.getMessage());
+					}
+				}
+			});
+		}
+		
+		public interface ReadListener<T>{
+			public void onError(String message);
+			public void onRead(T data);
+		}
+		
 		public void readAll(){
 			checkState(initialized);
 			checkState(!loaded && !loading);
@@ -317,7 +344,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 				
 				@Override
 				public void onReadString(String text, FileEntry file) {
-					LogUtils.log("index-read:"+text);
+					//LogUtils.log("index-read:"+text);
 					List<String> fileNames=Lists.newArrayList(text.split("\n"));
 					AsyncMultiCaller<String> caller=new AsyncMultiCaller<String>(fileNames) {
 						@Override

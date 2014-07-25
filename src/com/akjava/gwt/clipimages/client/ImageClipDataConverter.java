@@ -33,7 +33,7 @@ return object.toString();
 	
 	@Override
 	protected ImageClipData doBackward(String b) {
-		LogUtils.log("try-convert:"+b);
+		
 		JSONValue value=JSONParser.parseLenient(b);
 		JSONObject object=value.isObject();
 		Verify.verify(object!=null, "invalid data format");

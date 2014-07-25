@@ -20,7 +20,7 @@
 
  @sprite .cellListSelectedItem {
   gwt-image: 'clearGif';
-
+  background-color:#bdbdbd;
   color: gray;
   width:auto;
   height: auto;

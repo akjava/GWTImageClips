@@ -303,12 +303,14 @@ canvasControler = new CanvasDragMoveControler(canvas,new CanvasMoveListener() {
 		int y=event.getY();
 		
 		if(canvasControler.isStarted()){
+			//LogUtils.log("dragged");
 			return;
 		}
 		
 		if(selectionRect.contains(x, y)){
 			if(selectionRect.rightTop(boxSize).contains(x, y)){
 				CursorUtils.setCursor(AreaSelectionControler.this.canvas, "ne-resize");
+				//LogUtils.log("ne-resize");
 			}else if(selectionRect.rightBottom(boxSize).contains(x, y)){
 				CursorUtils.setCursor(AreaSelectionControler.this.canvas, "se-resize");
 			}else if(selectionRect.leftTop(boxSize).contains(x, y)){

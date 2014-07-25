@@ -1,0 +1,24 @@
+.item{
+	min-width: 280px;
+	max-width: 400px;
+	height:180;
+	margin: 6px;
+	padding: 0px;
+	border: 1px solid #e8e8e8;
+	overflow:hidden	 
+}
+h1{
+	color:#333;
+	font-size: 16px;
+}
+
+.preview{
+	width: 230px;
+	word-wrap:break-word;
+	margin: 1px;
+	padding: 0px;
+	overflow:hidden
+}
+.preview > img{
+	max-width: 230px;
+}
