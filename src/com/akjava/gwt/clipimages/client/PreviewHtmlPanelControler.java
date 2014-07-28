@@ -52,6 +52,8 @@ public class PreviewHtmlPanelControler {
 		
 		popup.show();
 		moveToAroundRightTop(popup);
+		
+		
 	}
 	
 	public VerticalPanel getContainer() {
