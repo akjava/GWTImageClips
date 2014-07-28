@@ -48,6 +48,11 @@ public abstract class AbstractFileSystemList<T> extends  IndexBasedAsyncFileSyst
 	public void onUpdateFaild(String fileName, String errorMessage) {
 		onError("update-faild:"+fileName+",error="+errorMessage);
 	}
+	
+	@Override
+	public void onReadIndexFaild(String errorMessage) {
+		onError("read-index-faild:,error="+errorMessage);
+	}
 
 	@Override
 	public void onAddComplete(String fileName) {
@@ -85,7 +90,7 @@ public abstract class AbstractFileSystemList<T> extends  IndexBasedAsyncFileSyst
 	*/
 
 	@Override
-	public void onReadEnd() {
+	public void onReadAllEnd() {
 		onLog("read-end");
 	}
 

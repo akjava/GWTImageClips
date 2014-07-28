@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 import com.akjava.gwt.clipimages.client.GWTClipImages.FileNameSetter;
 import com.akjava.gwt.html5.client.file.DirectoryReader;
 import com.akjava.gwt.html5.client.file.FileIOUtils;
@@ -23,14 +25,17 @@ import com.akjava.gwt.lib.client.experimental.FileSystemTextDataControler;
 import com.google.common.base.Converter;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Utf8;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ForwardingList;
 import com.google.common.collect.Lists;
 import com.google.gwt.core.client.JsArray;
+import com.google.gwt.user.client.Window;
 
 public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T> implements FileNameSetter<T>{
 		private boolean loaded;
 		public static final String INDEX_FILE_NAME=".index";
+		public static final String BACKUP_INDEX_FILE_NAME=".index.backup";
 		private List<T> rawList;
 		//private Function<T,String> fileNameFunction;
 		private Converter<T,String> converter;
@@ -42,14 +47,54 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 			return fileSystem;
 		}
 		
-		public static interface UnusedFileListener{
-			public void unusedFiles(List<String> fileNames);
+		public static interface FileListListener{
+			public void files(List<String> fileNames);
 		}
 		
-		public void cleanUnusedFiles(){
-			getUnusedFiles(new UnusedFileListener() {
+		public static interface DoneDeleteListener{
+			public void done();
+		}
+		
+		public void deleteAllFiles(final DoneDeleteListener listener){
+			getAllFiles(new FileListListener() {
 				@Override
-				public void unusedFiles(List<String> fileNames) {
+				public void files(List<String> fileNames) {
+					if(fileNames.size()==0){
+						return;
+					}
+					AsyncMultiCaller<String> removeCaller=new AsyncMultiCaller<String>(fileNames) {
+						@Override
+						public void execAsync(final String data) {
+							fileSystem.removeData(data, new RemoveCallback() {
+								
+								@Override
+								public void onError(String message, Object option) {
+									LogUtils.log("remove faild from cleanup:"+data);
+									done(data,false);
+								}
+								
+								@Override
+								public void onRemoved() {
+									LogUtils.log("remove success from cleanup:"+data);
+									done(data,true);
+								}
+							});
+						}
+						public void doFinally(boolean cancelled){
+							if(!cancelled){
+								listener.done();
+							}
+						}
+					};
+					removeCaller.startCall();
+				}
+			},null);
+		}
+		
+		public void deleteUnusedFiles(){
+			getUnusedFiles(new FileListListener() {
+				@Override
+				public void files(List<String> fileNames) {
 					if(fileNames.size()==0){
 						return;
 					}
@@ -75,11 +120,29 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 					removeCaller.startCall();
 				}
 			});
-			
 		}
-		public void getUnusedFiles(final UnusedFileListener listener){
-			final List<String> existFiles=Lists.newArrayList(createIndex().split("\n"));
-			existFiles.add(INDEX_FILE_NAME);
+		
+		
+		
+		
+
+		public void getAllFiles(final FileListListener listener,@Nullable List<String> existFiles){
+			checkNotNull(listener);
+			final List<String> ignores=new ArrayList<String>();
+			
+			if(existFiles!=null){
+				ignores.addAll(existFiles);
+			}
+			
+			/*
+			if(!ignores.contains(INDEX_FILE_NAME)){
+				ignores.add(INDEX_FILE_NAME);
+			}
+			
+			if(!ignores.contains(BACKUP_INDEX_FILE_NAME)){
+				ignores.add(BACKUP_INDEX_FILE_NAME);
+			}
+			*/
 			
 			fileSystem.initialize(new MakeDirectoryCallback() {
 				
@@ -97,16 +160,23 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 							List<String> notusedName=new ArrayList<String>();
 							for(int i=0;i<entries.length();i++){
 								FileEntry entry=entries.get(i);
-								if(!existFiles.contains(entry.getName())){
+								if(!ignores.contains(entry.getName())){
 									notusedName.add(entry.getName());
 								}
 							}
-							listener.unusedFiles(notusedName);
+							listener.files(notusedName);
 							LogUtils.log("not-used:"+Joiner.on("\n").join(notusedName));//TODO call listener
 						}
 					});
 				}
 			});
+		}
+		
+		public void getUnusedFiles(final FileListListener listener){
+			final List<String> existFiles=Lists.newArrayList(createIndex().split("\n"));
+			existFiles.add(INDEX_FILE_NAME);
+			existFiles.add(BACKUP_INDEX_FILE_NAME);
+			getAllFiles(listener, existFiles);
 		}
 		
 		public IndexBasedAsyncFileSystemList(String rootDir,List<T> list,Converter<T,String> converter){
@@ -215,6 +285,8 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		public abstract void onIndexUpdateComplete();
 		public abstract void onIndexUpdateFaild(String errorMessage);
 		
+		public abstract void onReadIndexFaild(String errorMessage);
+		
 		public abstract void onDataUpdate();
 		
 		public void updateAsync(final T data){//must have data
@@ -244,6 +316,8 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 				@Override
 				public void onError(String message, Object option) {
 					//there still not have name
+					
+					
 					onAddFaild(null,createErrorMessage(message,option));
 					
 					//remove auto-matically
@@ -251,7 +325,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 					updateIndexAsync();
 					onDataUpdate();
 					
-					cleanUnusedFiles();
+					deleteUnusedFiles();
 				}
 				
 				@Override
@@ -268,24 +342,82 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 			
 		}
 		
+		public void getFileQuataAndUsage(FileQuataAndUsageListener listener){
+			FileIOUtils.getFileQuataAndUsage(true,listener);
+		}
+		
 		public void updateIndexAsync(){
 			checkState(initialized);
-			String indexText=createIndex();
+			final String indexText=createIndex();
 			//LogUtils.log("indexText:"+indexText);
 			//TODO check-space first
 			
-			fileSystem.updateData(INDEX_FILE_NAME, indexText,new WriteCallback(){
-
-				@Override
-				public void onError(String message, Object option) {
-					onIndexUpdateFaild(createErrorMessage(message,option));
-				}
-
-				@Override
-				public void onWriteEnd(FileEntry file) {
-					onIndexUpdateComplete();
+			getFileQuataAndUsage(new FileQuataAndUsageListener(){
+				
+				public void doWriteIndex(int remain,String oldIndexText){
+					//check remain-size, and warn,if no space,do more space
+					int needbytes=Utf8.encodedLength(oldIndexText+indexText);
+					if(remain<needbytes){
+						Window.alert("not enough space to write index to storage\n"+"give more space or remove unused data from settings and reindex it");
+						return;
+					}
 					
-				}} );
+					//so no-problem finally write-data
+					//at first copy to backup //TODO
+					fileSystem.updateData(BACKUP_INDEX_FILE_NAME, oldIndexText,new WriteCallback(){
+
+						@Override
+						public void onError(String message, Object option) {
+							onIndexUpdateFaild(createErrorMessage("on-write-backup-index:"+message,option));
+						}
+
+						@Override
+						public void onWriteEnd(FileEntry file) {
+							
+							fileSystem.updateData(INDEX_FILE_NAME, indexText,new WriteCallback(){
+
+								@Override
+								public void onError(String message, Object option) {
+									onIndexUpdateFaild(createErrorMessage(message,option));
+								}
+
+								@Override
+								public void onWriteEnd(FileEntry file) {
+									onIndexUpdateComplete();
+									
+								}} );
+							
+							
+						}} );
+				}
+				
+				@Override
+				public void storageInfoUsageCallback(double currentUsageInBytes, double currentQuotaInBytes) {
+					final int remain=(int)(currentQuotaInBytes-currentUsageInBytes);
+					
+					readIndex(new ReadStringCallback() {
+						
+						@Override
+						public void onError(String message, Object option) {
+							//onReadIndexFaild(createErrorMessage(message, option));
+							//possible after initialized.
+							doWriteIndex(remain,"");
+						}
+						
+						@Override
+						public void onReadString(String oldIndexText, FileEntry file) {
+							//compare new & old
+							//alert if totally different,do more things on settings
+							//TODO
+							doWriteIndex(remain,oldIndexText);
+							
+						}
+					});
+					
+				}});
+			
+			
+			
 		}
 		
 		public String createIndex(){
@@ -300,7 +432,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		
 		public abstract String getFileName(T data);
 		public abstract void setFileName(T data,String fileName);
-		public abstract void onReadEnd();
+		public abstract void onReadAllEnd();
 	
 		public abstract void onReadFaild(String fileName);
 		
@@ -328,6 +460,9 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 			public void onError(String message);
 			public void onRead(T data);
 		}
+		public void readIndex(ReadStringCallback callback){
+			fileSystem.readText(INDEX_FILE_NAME,callback);
+		}
 		
 		public void readAll(){
 			checkState(initialized);
@@ -339,7 +474,12 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 				@Override
 				public void onError(String message, Object option) {
 					//TODO add indexRead faild,possible
-					LogUtils.log("index - not found?"+message+","+option);
+					LogUtils.log("index - not found:possible after initialized."+message+","+option);
+					
+					loaded=true;//allow only call once
+					loading=false;
+					onReadAllEnd();
+					onDataUpdate();
 				}
 				
 				@Override
@@ -378,7 +518,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 						public void doFinally(boolean cancelled){
 							loaded=true;//allow only call once
 							loading=false;
-							onReadEnd();
+							onReadAllEnd();
 							onDataUpdate();
 						}
 						

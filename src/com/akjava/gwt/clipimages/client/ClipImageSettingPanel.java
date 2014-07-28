@@ -8,6 +8,7 @@ import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.user.cellview.client.CellTable;
 import com.google.gwt.user.cellview.client.TextColumn;
+import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
 import com.google.gwt.user.client.ui.Label;
@@ -95,7 +96,22 @@ private EasyCellTableObjects<ImageClipData> tableObjects;
 		mainPanel.add(recoverButton);
 		
 		
-		
+		Button clearAllButton=new Button("Clear all",new ClickHandler() {
+			
+			@Override
+			public void onClick(ClickEvent event) {
+				boolean confirm=Window.confirm("really clear all datas?\nthis takes few times");
+				if(!confirm){
+					return;
+				}
+				gwtClipImages.deleteAllFiles();
+				gwtClipImages.listUpdate();
+				gwtClipImages.showMainWidget();
+				
+				
+			}
+		});
+		mainPanel.add(clearAllButton);
 	}
 	
 	public void addTrashBox(ImageClipData data){
@@ -111,5 +127,8 @@ private EasyCellTableObjects<ImageClipData> tableObjects;
 	protected void onClose() {
 		// TODO Auto-generated method stub
 		
+	}
+	public void onReadAll(){
+		//enable clean-up button
 	}
 }
