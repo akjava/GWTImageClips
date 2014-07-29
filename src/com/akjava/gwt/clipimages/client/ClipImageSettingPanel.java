@@ -1,8 +1,16 @@
 package com.akjava.gwt.clipimages.client;
 
+import java.util.List;
+
+import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.FileListListener;
+import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.ReadListener;
+import com.akjava.gwt.html5.client.file.FileIOUtils.RemoveCallback;
+import com.akjava.gwt.lib.client.LogUtils;
+import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
 import com.akjava.gwt.lib.client.widget.cell.EasyCellTableObjects;
 import com.akjava.gwt.lib.client.widget.cell.HtmlColumn;
 import com.akjava.gwt.lib.client.widget.cell.SimpleCellTable;
+import com.google.common.collect.Lists;
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
@@ -11,12 +19,14 @@ import com.google.gwt.user.cellview.client.TextColumn;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
+import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.VerticalPanel;
 
 public class ClipImageSettingPanel extends DockLayoutPanel {
 private GWTClipImages gwtClipImages;
 private EasyCellTableObjects<ImageClipData> tableObjects;
+private Button deleteUnusedDatasBt;
 	public ClipImageSettingPanel(GWTClipImages app) {
 		
 		super(Unit.PX);
@@ -112,6 +122,94 @@ private EasyCellTableObjects<ImageClipData> tableObjects;
 			}
 		});
 		mainPanel.add(clearAllButton);
+		
+		mainPanel.add(new Label("CleanUps"));
+		HorizontalPanel clPanel=new HorizontalPanel();
+		mainPanel.add(clPanel);
+		Button cleanToTrashBt=new Button("unused data to trashbox",new ClickHandler() {
+			
+			@Override
+			public void onClick(ClickEvent event) {
+				gwtClipImages.getClipImageList().getUnusedFiles(new FileListListener() {
+					@Override
+					public void files(List<String> fileNames) {
+						AsyncMultiCaller<String> loader=new AsyncMultiCaller<String>(fileNames) {
+							@Override
+							public void execAsync(final String data) {
+								gwtClipImages.getClipImageList().read(data, new ReadListener<ImageClipData>() {
+
+									@Override
+									public void onError(String message) {
+										LogUtils.log("maybe invalid?:"+data+",errro="+message);
+										done(data, false);
+									}
+
+									@Override
+									public void onRead(ImageClipData cdata) {
+										tableObjects.addItem(cdata);
+										done(data, true);
+									}
+								});
+							}
+							
+						};
+						loader.startCall();
+					}
+				});
+			}
+		});
+		clPanel.add(cleanToTrashBt);
+		
+		deleteUnusedDatasBt = new Button("delete unused datas",new ClickHandler() {
+			@Override
+			public void onClick(ClickEvent event) {
+				boolean confirm=Window.confirm("really delete unused files?");
+				if(!confirm){
+					return;
+				}
+				gwtClipImages.getClipImageList().deleteUnusedFiles();//TODO catch and clean
+				
+				
+			}
+		});
+		clPanel.add(deleteUnusedDatasBt);
+		deleteUnusedDatasBt.setEnabled(false);//can do after load.
+		
+		Button deleteBrokenDataBt=new Button("delete broken datas",new ClickHandler() {
+			@Override
+			public void onClick(ClickEvent event) {
+				AsyncMultiCaller<String> caller=new AsyncMultiCaller<String>(Lists.newArrayList(gwtClipImages.getReadFaildFileNameSet())){
+
+					@Override
+					public void execAsync(final String data) {
+						boolean confirm=Window.confirm("really delete broken files?");
+						if(!confirm){
+							return;
+						}
+						
+						gwtClipImages.getClipImageList().getFileSystem().removeData(data, new RemoveCallback() {
+							
+							@Override
+							public void onError(String message, Object option) {
+								LogUtils.log("faild-remove:"+message+","+option);
+								done(data, false);
+							}
+							
+							@Override
+							public void onRemoved() {
+								LogUtils.log("success-invalid-data:"+data);
+								done(data, true);
+							}
+						});
+					}
+					
+				};
+				caller.startCall();
+			}
+		});
+		clPanel.add(deleteBrokenDataBt);
+		
+		
 	}
 	
 	public void addTrashBox(ImageClipData data){
@@ -129,6 +227,6 @@ private EasyCellTableObjects<ImageClipData> tableObjects;
 		
 	}
 	public void onReadAll(){
-		//enable clean-up button
+		deleteUnusedDatasBt.setEnabled(true);
 	}
 }

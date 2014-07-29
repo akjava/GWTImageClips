@@ -325,7 +325,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 					updateIndexAsync();
 					onDataUpdate();
 					
-					deleteUnusedFiles();
+					//deleteUnusedFiles();
 				}
 				
 				@Override

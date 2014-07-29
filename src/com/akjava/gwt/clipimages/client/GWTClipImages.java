@@ -10,6 +10,7 @@ import java.util.Set;
 
 import com.akjava.gwt.clipimages.client.ImageBuilder.WebPBuilder;
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.DoneDeleteListener;
+import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.FileListListener;
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.ReadListener;
 import com.akjava.gwt.clipimages.client.custom.SimpleCellListResources;
 import com.akjava.gwt.html5.client.file.File;
@@ -108,6 +109,10 @@ public class GWTClipImages implements EntryPoint {
 		ImageClipData data=new ImageClipData();
 		data.setImageData(dataUrl);
 		add(data);
+	}
+	
+	public ClipImageList getClipImageList(){
+		return clipImageList;
 	}
 	
 	public void onModuleLoad() {
@@ -273,41 +278,7 @@ public class GWTClipImages implements EntryPoint {
 		});
 		inputPanel.add(givemeMore);
 		
-		Button cleanUp=new Button("clean up",new ClickHandler() {
-			@Override
-			public void onClick(ClickEvent event) {
-				
-				clipImageList.deleteUnusedFiles();//TODO catch and clean
-				
-				AsyncMultiCaller<String> caller=new AsyncMultiCaller<String>(Lists.newArrayList(faildList)){
-
-					@Override
-					public void execAsync(final String data) {
-					
-						
-						clipImageList.getFileSystem().removeData(data, new RemoveCallback() {
-							
-							@Override
-							public void onError(String message, Object option) {
-								LogUtils.log("faild-remove:"+message+","+option);
-								done(data, false);
-							}
-							
-							@Override
-							public void onRemoved() {
-								LogUtils.log("success-invalid-data:"+data);
-								done(data, true);
-							}
-						});
-					}
-					
-				};
-				caller.startCall();
-				
-			}
-		});
-		inputPanel.add(cleanUp);
-		cleanUp.setEnabled(false);
+	
 		
 		
 		editor = new ImageClipDataEditor(areaSelectionControler.getCanvas());
@@ -884,6 +855,10 @@ public class GWTClipImages implements EntryPoint {
 
 
 	private Set<String> faildList=Sets.newLinkedHashSet();
+	public Set<String> getReadFaildFileNameSet() {
+		return faildList;
+	}
+
 	public final class ClipImageList extends AbstractFileSystemList<ImageClipData>{
 		
 		public ClipImageList(String rootDir, List<ImageClipData> list, Converter<ImageClipData, String> converter) {
