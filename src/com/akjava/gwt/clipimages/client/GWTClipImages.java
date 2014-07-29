@@ -3,6 +3,7 @@ package com.akjava.gwt.clipimages.client;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -150,6 +151,11 @@ public class GWTClipImages implements EntryPoint {
 			
 			@Override
 			public  void onDropFiles(List<FileEntry> files){
+				
+				Collections.sort(files,FileEntryOrdering.getOrderByPath());
+				
+					
+				
 				
 					dropAnddAddCaller = new AsyncMultiCaller<FileEntry>(files) {
 						@Override
@@ -858,12 +864,24 @@ public class GWTClipImages implements EntryPoint {
 	public Set<String> getReadFaildFileNameSet() {
 		return faildList;
 	}
+	
+	private boolean debugSetting=false;
 
 	public final class ClipImageList extends AbstractFileSystemList<ImageClipData>{
 		
 		public ClipImageList(String rootDir, List<ImageClipData> list, Converter<ImageClipData, String> converter) {
 			super(rootDir, list, converter);
 		}
+		
+		@Override
+		public void readAll(){
+			//for test
+			if(debugSetting)
+			showSettingWidget();
+			else
+				super.readAll();
+		}
+		
 		
 		@Override
 		public String getFileName(ImageClipData data) {
@@ -909,7 +927,7 @@ public class GWTClipImages implements EntryPoint {
 			
 			for(ImageClipData d:rawList){
 				if(d.getId().equals(fileName)){
-					LogUtils.log("generate-image-after has id");
+					//LogUtils.log("generate-image-after has id");
 					generateImages(d);
 					break;
 				}else{

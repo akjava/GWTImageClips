@@ -3,7 +3,6 @@ package com.akjava.gwt.clipimages.client;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +16,8 @@ import com.akjava.gwt.html5.client.file.FileIOUtils.MakeDirectoryCallback;
 import com.akjava.gwt.html5.client.file.FileIOUtils.ReadStringCallback;
 import com.akjava.gwt.html5.client.file.FileIOUtils.RemoveCallback;
 import com.akjava.gwt.html5.client.file.FileIOUtils.WriteCallback;
+import com.akjava.gwt.html5.client.file.FileUtils;
+import com.akjava.gwt.html5.client.file.FileUtils.DirectoryFileListListener;
 import com.akjava.gwt.html5.client.file.webkit.DirectoryCallback;
 import com.akjava.gwt.html5.client.file.webkit.FileEntry;
 import com.akjava.gwt.lib.client.LogUtils;
@@ -25,6 +26,7 @@ import com.akjava.gwt.lib.client.experimental.FileSystemTextDataControler;
 import com.google.common.base.Converter;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Utf8;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ForwardingList;
@@ -116,6 +118,12 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 								}
 							});
 						}
+
+						@Override
+						public void doFinally(boolean cancelled) {
+							if(cancelled)
+								LogUtils.log("async multi-caller finally:cancelled="+cancelled);
+						}
 					};
 					removeCaller.startCall();
 				}
@@ -129,6 +137,8 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		public void getAllFiles(final FileListListener listener,@Nullable List<String> existFiles){
 			checkNotNull(listener);
 			final List<String> ignores=new ArrayList<String>();
+			
+			final List<String> fileNames=new ArrayList<String>();
 			
 			if(existFiles!=null){
 				ignores.addAll(existFiles);
@@ -153,21 +163,21 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 				
 				@Override
 				public void onMakeDirectory(FileEntry file) {
-					DirectoryReader reader=file.getReader();
-					reader.readEntries(new DirectoryCallback() {
+					
+					FileUtils.readDirectryFileNames(file, new Predicate<FileEntry>() {
+						
 						@Override
-						public void callback(JsArray<FileEntry> entries) {
-							List<String> notusedName=new ArrayList<String>();
-							for(int i=0;i<entries.length();i++){
-								FileEntry entry=entries.get(i);
-								if(!ignores.contains(entry.getName())){
-									notusedName.add(entry.getName());
-								}
-							}
-							listener.files(notusedName);
-							LogUtils.log("not-used:"+Joiner.on("\n").join(notusedName));//TODO call listener
+						public boolean apply(FileEntry input) {
+							return !ignores.contains(input.getName());
+						}
+					}, new DirectoryFileListListener<String>() {
+						
+						@Override
+						public void onList(List<String> files) {
+							listener.files(files);
 						}
 					});
+					
 				}
 			});
 		}
@@ -464,10 +474,16 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 			fileSystem.readText(INDEX_FILE_NAME,callback);
 		}
 		
+		public void reReadAll(){
+			loaded=false;
+			readAll();
+		}
 		public void readAll(){
 			checkState(initialized);
 			checkState(!loaded && !loading);
 			loading=true;
+			
+			this.clear();//
 			
 			fileSystem.readText(INDEX_FILE_NAME, new ReadStringCallback() {
 				

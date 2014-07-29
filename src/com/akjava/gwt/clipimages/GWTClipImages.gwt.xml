@@ -16,6 +16,7 @@
     <inherits name='com.akjava.gwt.common.Common'/>
      <inherits name='com.google.common.escape.Escape'/>
      <inherits name="com.google.gwt.json.JSON" />
+     <inherits name='com.akjava.gwt.jszip.GWTJSZip'/>
     
   <!-- <inherits name='com.google.gwt.user.theme.standard.Standard'/> -->
   <!-- <inherits name='com.google.gwt.user.theme.chrome.Chrome'/> -->
