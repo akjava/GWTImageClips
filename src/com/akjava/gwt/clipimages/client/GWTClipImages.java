@@ -338,7 +338,7 @@ public class GWTClipImages implements EntryPoint {
 	    	removeBt = new Button("Remove",new ClickHandler() {
 				@Override
 				public void onClick(ClickEvent event) {
-					ImageClipData targetData=driver.flush();//Update & Next ,change editor
+					final ImageClipData targetData=driver.flush();//Update & Next ,change editor
 					clearImageCashes(targetData);//remove old data
 					
 					clipImageList.read(targetData.getId(), new ReadListener<ImageClipData>() {
@@ -347,7 +347,7 @@ public class GWTClipImages implements EntryPoint {
 						public void onError(String message) {
 							LogUtils.log("maybe invalid json:"+message);
 							
-							clipImageList.remove(getSelection());//call inside
+							clipImageList.remove(targetData);//call inside
 							
 							driver.edit(new ImageClipData());//clear
 							unselect();
@@ -359,7 +359,7 @@ public class GWTClipImages implements EntryPoint {
 						public void onRead(ImageClipData data) {
 							settingPanel.addTrashBox(data);
 							
-							clipImageList.remove(getSelection());//call inside
+							clipImageList.remove(targetData);//call inside
 							
 							driver.edit(new ImageClipData());//clear
 							unselect();
@@ -376,7 +376,7 @@ public class GWTClipImages implements EntryPoint {
 	    	removeAndNextBt = new Button("Remove & Next",new ClickHandler() {
 				@Override
 				public void onClick(ClickEvent event) {
-					ImageClipData targetData=driver.flush();//Update & Next ,change editor
+					final ImageClipData targetData=driver.flush();//Update & Next ,change editor
 					clearImageCashes(targetData);//remove old data
 					
 					clipImageList.read(targetData.getId(), new ReadListener<ImageClipData>() {
@@ -385,7 +385,7 @@ public class GWTClipImages implements EntryPoint {
 						public void onError(String message) {
 							LogUtils.log("maybe invalid json:"+message);
 							
-							clipImageList.remove(getSelection());//call inside
+							clipImageList.remove(targetData);//call inside
 							
 							driver.edit(new ImageClipData());//clear
 							unselect();
@@ -399,14 +399,21 @@ public class GWTClipImages implements EntryPoint {
 						public void onRead(ImageClipData data) {
 							settingPanel.addTrashBox(data);
 							
-							clipImageList.remove(getSelection());//call inside
+							Optional<ImageClipData> hasNext=getNextData(data);
+							clipImageList.remove(targetData);//call inside
 							
-							driver.edit(new ImageClipData());//clear
-							unselect();
+							//driver.edit(new ImageClipData());//clear
+							//unselect();
 							listUpdate();
-							
-							for(ImageClipData nextData:getNextData(data).asSet()){
+							boolean edited=false;
+							for(ImageClipData nextData:hasNext.asSet()){
 								edit(nextData);
+								edited=true;
+							}
+							
+							if(!edited){
+								driver.edit(new ImageClipData());//clear
+								unselect();//reach last
 							}
 							
 						}
