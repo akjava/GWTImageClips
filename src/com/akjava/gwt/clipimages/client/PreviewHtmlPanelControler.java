@@ -14,7 +14,7 @@ public class PreviewHtmlPanelControler {
 	
 	int w;
 	int h;
-	private int marginTop=30;
+	private int marginTop=48;
 	private VerticalPanel container;
 	public PreviewHtmlPanelControler(int w,int h){
 		this.w=w;

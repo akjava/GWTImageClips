@@ -540,7 +540,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 						
 						
 					};
-					caller.startCall();
+					caller.startCall(250);
 					
 				}
 			});

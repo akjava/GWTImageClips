@@ -6,7 +6,12 @@ import com.akjava.gwt.lib.client.datalist.AbstractContextCell;
 import com.akjava.gwt.lib.client.widget.cell.SimpleContextMenu;
 import com.akjava.lib.common.utils.ListUtils;
 import com.google.gwt.user.client.Command;
-
+/**
+ * @deprecated moved to experimental
+ * @author aki
+ *
+ * @param <T>
+ */
 public abstract class AbstractMoveableCell<T> extends AbstractContextCell<T> {
 
 	public AbstractMoveableCell(){
