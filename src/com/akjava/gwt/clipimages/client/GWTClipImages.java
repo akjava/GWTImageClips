@@ -9,19 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.akjava.gwt.clipimages.client.ImageBuilder.WebPBuilder;
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.DoneDeleteListener;
-import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.FileListListener;
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.ReadListener;
 import com.akjava.gwt.clipimages.client.custom.SimpleCellListResources;
 import com.akjava.gwt.html5.client.file.File;
 import com.akjava.gwt.html5.client.file.FileHandler;
-import com.akjava.gwt.html5.client.file.FileIOUtils;
-import com.akjava.gwt.html5.client.file.FileIOUtils.FileQuataAndUsageListener;
-import com.akjava.gwt.html5.client.file.FileIOUtils.RemoveCallback;
-import com.akjava.gwt.html5.client.file.FileIOUtils.RequestPersitentFileQuotaListener;
 import com.akjava.gwt.html5.client.file.FileReader;
-import com.akjava.gwt.html5.client.file.FileSystem;
 import com.akjava.gwt.html5.client.file.FileUploadForm;
 import com.akjava.gwt.html5.client.file.FileUtils;
 import com.akjava.gwt.html5.client.file.FileUtils.DataURLListener;
@@ -32,13 +25,15 @@ import com.akjava.gwt.lib.client.CanvasUtils;
 import com.akjava.gwt.lib.client.ImageElementUtils;
 import com.akjava.gwt.lib.client.LogUtils;
 import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
+import com.akjava.gwt.lib.client.experimental.FileEntryOrdering;
+import com.akjava.gwt.lib.client.experimental.ImageBuilder.WebPBuilder;
+import com.akjava.gwt.lib.client.experimental.PreviewHtmlPanelControler;
 import com.akjava.gwt.lib.client.widget.PanelUtils;
 import com.akjava.gwt.lib.client.widget.cell.SimpleContextMenu;
 import com.akjava.lib.common.graphics.Rect;
 import com.google.common.base.Converter;
 import com.google.common.base.Optional;
 import com.google.common.collect.ForwardingList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.core.client.EntryPoint;
@@ -99,6 +94,8 @@ public class GWTClipImages implements EntryPoint {
 	private AsyncMultiCaller<FileEntry> dropAnddAddCaller;
 
 	private Button updateAndNextBt;
+
+	private Button removeAndNextBt;
 	public Canvas getSharedCanvas(){
 		if(sharedCanvas==null){
 			sharedCanvas=Canvas.createIfSupported();
@@ -257,32 +254,7 @@ public class GWTClipImages implements EntryPoint {
 		inputPanel.add(fileUpload);
 		
 		
-		Button givemeMore=new Button("give me more 10MB",new ClickHandler() {
-			
-			@Override
-			public void onClick(ClickEvent event) {
-				
-				FileIOUtils.getFileQuataAndUsage(true, new FileQuataAndUsageListener() {
-					@Override
-					public void storageInfoUsageCallback(double currentUsageInBytes, double currentQuotaInBytes) {
-						FileIOUtils.requestPersitentFileQuota(currentQuotaInBytes+(1024*1024*10), new RequestPersitentFileQuotaListener() {
-							
-							@Override
-							public void onError(String message, Object option) {
-								LogUtils.log(message+","+option);
-							}
-							
-							@Override
-							public void onAccepted(FileSystem fileSystem, double acceptedSize) {
-								LogUtils.log("accepted:"+","+acceptedSize);
-							}
-						});
-					}
-				});
-				
-			}
-		});
-		inputPanel.add(givemeMore);
+
 		
 	
 		
@@ -366,9 +338,10 @@ public class GWTClipImages implements EntryPoint {
 	    	removeBt = new Button("Remove",new ClickHandler() {
 				@Override
 				public void onClick(ClickEvent event) {
-					clearImageCashes(getSelection());//remove old data
+					ImageClipData targetData=driver.flush();//Update & Next ,change editor
+					clearImageCashes(targetData);//remove old data
 					
-					clipImageList.read(getSelection().getId(), new ReadListener<ImageClipData>() {
+					clipImageList.read(targetData.getId(), new ReadListener<ImageClipData>() {
 
 						@Override
 						public void onError(String message) {
@@ -391,16 +364,56 @@ public class GWTClipImages implements EntryPoint {
 							driver.edit(new ImageClipData());//clear
 							unselect();
 							listUpdate();
+							
 							rootDeck.showWidget(0);//add case,need this
 						}
 						
 					});
-					
-					
-					
 				}
 			});
 	    	removeBt.setEnabled(false);
+	    	
+	    	removeAndNextBt = new Button("Remove & Next",new ClickHandler() {
+				@Override
+				public void onClick(ClickEvent event) {
+					ImageClipData targetData=driver.flush();//Update & Next ,change editor
+					clearImageCashes(targetData);//remove old data
+					
+					clipImageList.read(targetData.getId(), new ReadListener<ImageClipData>() {
+
+						@Override
+						public void onError(String message) {
+							LogUtils.log("maybe invalid json:"+message);
+							
+							clipImageList.remove(getSelection());//call inside
+							
+							driver.edit(new ImageClipData());//clear
+							unselect();
+							listUpdate();
+							
+							
+							rootDeck.showWidget(0);//add case,need this
+						}
+
+						@Override
+						public void onRead(ImageClipData data) {
+							settingPanel.addTrashBox(data);
+							
+							clipImageList.remove(getSelection());//call inside
+							
+							driver.edit(new ImageClipData());//clear
+							unselect();
+							listUpdate();
+							
+							for(ImageClipData nextData:getNextData(data).asSet()){
+								edit(nextData);
+							}
+							
+						}
+						
+					});
+				}
+			});
 	    	
 	    	cancelBt = new Button("Cancel",new ClickHandler() {
 				@Override
@@ -486,7 +499,9 @@ public class GWTClipImages implements EntryPoint {
 					driver.edit(new ImageClipData());
 					addBt.setEnabled(true);
 					updateBt.setEnabled(false);
+					updateAndNextBt.setEnabled(false);
 					removeBt.setEnabled(false);
+					removeAndNextBt.setEnabled(false);
 					newBt.setEnabled(false);
 					rootDeck.showWidget(0);//TODO future only double click
 				}
@@ -537,6 +552,7 @@ public class GWTClipImages implements EntryPoint {
 	    	buttons.add(updateBt);
 	    	buttons.add(updateAndNextBt);
 	    	buttons.add(removeBt);
+	    	buttons.add(removeAndNextBt);
 	    	buttons.add(cancelBt);
 	    	
 		
@@ -611,7 +627,9 @@ public class GWTClipImages implements EntryPoint {
 		driver.edit(data);
 		addBt.setEnabled(false);
 		updateBt.setEnabled(true);
+		updateAndNextBt.setEnabled(true);
 		removeBt.setEnabled(true);
+		removeAndNextBt.setEnabled(true);
 		newBt.setEnabled(true);
 		rootDeck.showWidget(1);//TODO future only double click
 	}
