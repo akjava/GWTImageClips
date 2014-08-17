@@ -345,6 +345,12 @@ private Button remakeIndex;
 						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","clip-raw-images.zip","Download clip-raw-images",true);
 						dumpLinks.add(a);
 					}
+
+					@Override
+					public boolean isCancelld() {
+						// TODO Auto-generated method stub
+						return false;
+					}
 				});
 				
 			}
@@ -545,6 +551,12 @@ restoreFileUpload.setAccept("*.zip");
 						openCvLinks.add(a);
 						setEnabled(true);
 					}
+
+					@Override
+					public boolean isCancelld() {
+						// TODO Auto-generated method stub
+						return false;
+					}
 				});
 				
 			}
@@ -553,13 +565,105 @@ restoreFileUpload.setAccept("*.zip");
 		 
 		openCvButtons.add(openCvPosImages);
 		
-Button openCvBgImages=new Button("Extract Bg Datas",new ClickHandler() {
-			int imageIndex=0;
-			int maxImage=5000;
+		ExecuteButton openCvPosTurnedImages=new ExecuteButton("Extract Turned-Pos Datas",false){
+			boolean readed;
+			int total;
 			@Override
-			public void onClick(ClickEvent event) {
+			public void executeOnClick() {
+
+				final Canvas sharedCanvas=Canvas.createIfSupported();
+				final Canvas sharedCanvas2=Canvas.createIfSupported();
+				final JSZip zip=JSZip.newJSZip();
+				
+				final List<String> lines=new ArrayList<String>();
+				
+				doGetAllFile(new ReadAllFileListener() {
+					@Override
+					public void read(ImageClipData clipdata) {
+						if(clipdata.getRects().size()==0){
+							return;
+						}
+						String imageUrl=clipdata.getImageData();
+						
+						double scale=0.9;
+						int stepAngle=5;
+						int startAngle=-30;
+						int endAngle=30;
+						
+						ImageElement image=ImageElementUtils.create(imageUrl);
+							
+							for(Rect r:clipdata.getRects()){
+								CanvasUtils.createCanvas(sharedCanvas2, r.getWidth(), r.getHeight());
+								for(int i=0;i<=(endAngle-startAngle)/stepAngle;i++){
+									int angle=startAngle+stepAngle*i;
+									if(angle==0){
+										continue;
+									}
+									
+									String rinfo=r.toKanmaString().replace(",", "_");
+									String fileName=clipdata.getId()+"_"+rinfo+"_"+i+".jpg";
+									
+									Canvas clip=ImageRectUtils.crop(image, r.copy().expand(r.getWidth(), r.getHeight()), sharedCanvas);
+									CanvasUtils.clear(sharedCanvas2);
+									CanvasUtils.drawCenter(sharedCanvas2, clip.getCanvasElement(), 0, 0, scale, scale, angle, 1);
+									
+									
+									zip.base64UrlFile(fileName, sharedCanvas2.toDataUrl("image/jpeg"));
+									String line=fileName+" 1 0 0 "+r.getWidth()+" "+r.getHeight();
+									lines.add(line);
+									
+									
+								}
+								
+							}
+							
+							
+							
+							readed=true;//for debug
+							total++;
+							LogUtils.log("zipped:"+total);
+						
+					}
+					
+					@Override
+					public void error(String message) {
+						LogUtils.log(message);
+					}
+					
+					@Override
+					public void end() {
+						LogUtils.log("generating-zip");
+						zip.file("info.txt", Joiner.on("\n").join(lines));
+						
+						dumpLinks.clear();
+						Blob blob=zip.generateBlob(null);
+						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-pos-turned-images.zip","Download OpenCv pos-turned-images",true);
+						openCvLinks.add(a);
+						setEnabled(true);
+					}
+
+					@Override
+					public boolean isCancelld() {
+						//return readed;
+						return false;
+					}
+				});
+				
+			}
+			
+		};
+		 
+		openCvButtons.add(openCvPosTurnedImages);
+		
+		
+		ExecuteButton openCvBgImages=new ExecuteButton("Extract Bg Datas",false){
+			int imageIndex=0;
+			int maxImage=20000;
+			@Override
+			public void executeOnClick() {
+
 				final Canvas imageCanvas=Canvas.createIfSupported();
-				final int size=512;
+				final int size=512+256;
 				final Canvas clipCanvas=CanvasUtils.createCanvas(size, size);
 				final JSZip zip=JSZip.newJSZip();
 				
@@ -573,6 +677,11 @@ Button openCvBgImages=new Button("Extract Bg Datas",new ClickHandler() {
 						}
 						String imageUrl=clipdata.getImageData();
 						
+						List<Rect> expandRect=new ArrayList<Rect>();
+						for(Rect r:clipdata.getRects()){
+							expandRect.add(r.copy().expand(64, 64));
+						}
+						
 						
 						
 						ImageElementUtils.copytoCanvas(imageUrl, imageCanvas);
@@ -580,7 +689,7 @@ Button openCvBgImages=new Button("Extract Bg Datas",new ClickHandler() {
 							for(int x=0;x<imageCanvas.getCoordinateSpaceWidth()/size;x++){
 							Rect clipRect=new Rect(x*size,y*size,size,size);
 							boolean collisioned=false;
-							for(Rect r:clipdata.getRects()){
+							for(Rect r:expandRect){
 								if(clipRect.collision(r)){
 									collisioned=true;
 									break;
@@ -626,11 +735,18 @@ Button openCvBgImages=new Button("Extract Bg Datas",new ClickHandler() {
 						Blob blob=zip.generateBlob(null);
 						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-bg-images.zip","Download OpenCv bg-images",true);
 						openCvLinks.add(a);
+						setEnabled(true);
+					}
+
+					@Override
+					public boolean isCancelld() {
+						return imageIndex>=maxImage;
 					}
 				});
 				
 			}
-		});
+			
+		};
 		openCvButtons.add(openCvBgImages);
 	}
 	
@@ -641,6 +757,11 @@ Button openCvBgImages=new Button("Extract Bg Datas",new ClickHandler() {
 				AsyncMultiCaller<String> getDataCaller=new AsyncMultiCaller<String>(fileNames) {
 					@Override
 					public void execAsync(final String data) {
+						if(allFileListener.isCancelld()){
+							setCancelled(true);
+							done(data,false);
+							return;
+						}
 						gwtClipImages.getClipImageList().read(data, new ReadListener<ImageClipData>() {
 
 							@Override
@@ -674,6 +795,7 @@ Button openCvBgImages=new Button("Extract Bg Datas",new ClickHandler() {
 		public void error(String message);
 		public void read(ImageClipData clipdata);
 		public void end();
+		public boolean isCancelld();
 	}
 	
 	
