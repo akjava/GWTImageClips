@@ -663,7 +663,7 @@ restoreFileUpload.setAccept("*.zip");
 			public void executeOnClick() {
 
 				final Canvas imageCanvas=Canvas.createIfSupported();
-				final int size=512+256;
+				final int size=512;
 				final Canvas clipCanvas=CanvasUtils.createCanvas(size, size);
 				final JSZip zip=JSZip.newJSZip();
 				
@@ -679,7 +679,7 @@ restoreFileUpload.setAccept("*.zip");
 						
 						List<Rect> expandRect=new ArrayList<Rect>();
 						for(Rect r:clipdata.getRects()){
-							expandRect.add(r.copy().expand(64, 64));
+							expandRect.add(r.copy().expand(16, 16));
 						}
 						
 						
@@ -748,6 +748,70 @@ restoreFileUpload.setAccept("*.zip");
 			
 		};
 		openCvButtons.add(openCvBgImages);
+		
+		ExecuteButton openCvBgPaintImages=new ExecuteButton("Extract Paint Bg Datas",false){
+			
+			@Override
+			public void executeOnClick() {
+
+
+				final Canvas sharedCanvas=Canvas.createIfSupported();
+				final JSZip zip=JSZip.newJSZip();
+				
+				final List<String> lines=new ArrayList<String>();
+				
+				doGetAllFile(new ReadAllFileListener() {
+					@Override
+					public void read(ImageClipData clipdata) {
+						if(clipdata.getRects().size()==0){
+							return;
+						}
+						String imageUrl=clipdata.getImageData();
+						
+						String fileName=clipdata.getId()+".jpg";
+						
+						
+						
+						ImageElementUtils.copytoCanvas(imageUrl, sharedCanvas);
+						
+						
+						
+						
+						for(Rect r:clipdata.getRects()){
+							ImageRectUtils.fill(r,sharedCanvas,"#000");
+						}
+						
+						zip.base64UrlFile(fileName, sharedCanvas.toDataUrl("image/jpeg"));
+						
+						lines.add(fileName);
+						
+					}
+					
+					@Override
+					public void error(String message) {
+						LogUtils.log(message);
+					}
+					
+					@Override
+					public void end() {
+						zip.file("bg.txt", Joiner.on("\n").join(lines));
+						
+						dumpLinks.clear();
+						Blob blob=zip.generateBlob(null);
+						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-paint-bg-images.zip","Download OpenCv paint-bg-images",true);
+						openCvLinks.add(a);
+						setEnabled(true);
+					}
+
+					@Override
+					public boolean isCancelld() {
+						// TODO Auto-generated method stub
+						return false;
+					}
+				});
+			}
+		};
+		openCvButtons.add(openCvBgPaintImages);
 	}
 	
 	private void doGetAllFile(final ReadAllFileListener allFileListener){

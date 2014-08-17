@@ -56,6 +56,7 @@ import com.google.gwt.event.dom.client.MouseWheelEvent;
 import com.google.gwt.event.dom.client.MouseWheelHandler;
 import com.google.gwt.safehtml.shared.SafeHtmlBuilder;
 import com.google.gwt.user.cellview.client.CellList;
+import com.google.gwt.user.client.History;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.Anchor;
 import com.google.gwt.user.client.ui.Button;
@@ -118,6 +119,12 @@ public class GWTClipImages implements EntryPoint {
 	}
 	
 	public void onModuleLoad() {
+		
+		String token=History.getToken();
+		if(token.indexOf("debug")!=-1){
+			debugSetting=true;
+		}
+		
 		previewControler=new PreviewHtmlPanelControler();
 		Button showBt=new Button("Edit",new ClickHandler() {
 			

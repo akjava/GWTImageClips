@@ -36,4 +36,9 @@ private static Canvas sharedCanvas=Canvas.createIfSupported();//TODO delay
 		retCanvas.getContext2d().drawImage(image, -rect.getX(), -rect.getY());
 		return retCanvas;
 	}
+
+	public static void fill(Rect r, Canvas canvas, String style) {
+		canvas.getContext2d().setFillStyle(style);
+		canvas.getContext2d().fillRect(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+	}
 }

@@ -10,7 +10,6 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import com.akjava.gwt.clipimages.client.GWTClipImages.FileNameSetter;
-import com.akjava.gwt.html5.client.file.DirectoryReader;
 import com.akjava.gwt.html5.client.file.FileIOUtils;
 import com.akjava.gwt.html5.client.file.FileIOUtils.FileQuataAndUsageListener;
 import com.akjava.gwt.html5.client.file.FileIOUtils.MakeDirectoryCallback;
@@ -19,7 +18,6 @@ import com.akjava.gwt.html5.client.file.FileIOUtils.RemoveCallback;
 import com.akjava.gwt.html5.client.file.FileIOUtils.WriteCallback;
 import com.akjava.gwt.html5.client.file.FileUtils;
 import com.akjava.gwt.html5.client.file.FileUtils.DirectoryFileListListener;
-import com.akjava.gwt.html5.client.file.webkit.DirectoryCallback;
 import com.akjava.gwt.html5.client.file.webkit.FileEntry;
 import com.akjava.gwt.lib.client.LogUtils;
 import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
@@ -32,9 +30,14 @@ import com.google.common.base.Utf8;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ForwardingList;
 import com.google.common.collect.Lists;
-import com.google.gwt.core.client.JsArray;
 import com.google.gwt.user.client.Window;
 
+/**
+ * this is too slow because of any file encoded base64 & convert to json
+ * @author aki
+ *
+ * @param <T>
+ */
 public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T> implements FileNameSetter<T>{
 		private boolean loaded;
 		public static final String INDEX_FILE_NAME=".index";
