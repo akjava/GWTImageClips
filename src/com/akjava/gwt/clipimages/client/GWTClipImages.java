@@ -24,10 +24,12 @@ import com.akjava.gwt.html5.client.file.webkit.FilePathCallback;
 import com.akjava.gwt.lib.client.CanvasUtils;
 import com.akjava.gwt.lib.client.ImageElementUtils;
 import com.akjava.gwt.lib.client.LogUtils;
+import com.akjava.gwt.lib.client.experimental.AreaSelectionControler;
 import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
 import com.akjava.gwt.lib.client.experimental.FileEntryOrdering;
 import com.akjava.gwt.lib.client.experimental.ImageBuilder.WebPBuilder;
 import com.akjava.gwt.lib.client.experimental.PreviewHtmlPanelControler;
+import com.akjava.gwt.lib.client.experimental.RectListEditor;
 import com.akjava.gwt.lib.client.widget.PanelUtils;
 import com.akjava.gwt.lib.client.widget.cell.SimpleContextMenu;
 import com.akjava.lib.common.graphics.Rect;
@@ -47,6 +49,9 @@ import com.google.gwt.editor.client.ValueAwareEditor;
 import com.google.gwt.editor.client.adapters.SimpleEditor;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
+import com.google.gwt.event.dom.client.KeyCodes;
+import com.google.gwt.event.dom.client.KeyUpEvent;
+import com.google.gwt.event.dom.client.KeyUpHandler;
 import com.google.gwt.event.dom.client.MouseWheelEvent;
 import com.google.gwt.event.dom.client.MouseWheelHandler;
 import com.google.gwt.safehtml.shared.SafeHtmlBuilder;
@@ -74,12 +79,11 @@ public class GWTClipImages implements EntryPoint {
 
 	
 	
-	private String imageUrl;
 	
 	private Canvas sharedCanvas;
 	private Map<String,String> imageMap=new HashMap<String,String>();
 	
-	private AreaSelectionControler areaSelectionControler;
+	//private AreaSelectionControler areaSelectionControler;
 
 	private SingleSelectionModel<ImageClipData> selectionModel;
 
@@ -126,6 +130,14 @@ public class GWTClipImages implements EntryPoint {
 		previewControler.hide();
 		previewControler.getContainer().add(showBt);
 		
+		Button hideBt=new Button("Hide",new ClickHandler() {
+			
+			@Override
+			public void onClick(ClickEvent event) {
+				previewControler.hide();
+			}
+		});
+		previewControler.getContainer().add(hideBt);
 		
 		rootDeck = new DeckLayoutPanel();
 		
@@ -134,7 +146,7 @@ public class GWTClipImages implements EntryPoint {
 		
 		
 		
-		areaSelectionControler=new AreaSelectionControler();
+		//areaSelectionControler=new AreaSelectionControler();
 		
 		
 		 //title,rect,image
@@ -239,27 +251,27 @@ public class GWTClipImages implements EntryPoint {
 		HorizontalPanel inputPanel=new HorizontalPanel();
 		inputPanel.setSpacing(8);
 		
-		FileUploadForm fileUpload=FileUtils.createSingleFileUploadForm(new DataURLListener() {
+		fileUpload = FileUtils.createSingleFileUploadForm(new DataURLListener() {
 			@Override
 			public void uploaded(File file, String text) {
 				text=WebPBuilder.from(text).toDataUrl();
-				areaSelectionControler.getSelectionRect().clear();
+				//areaSelectionControler.getSelectionRect().clear();
 				editor.updateImageclipData(text);
-				setCanvasImage(text);//convert from PNG to WEBP here
+				//setCanvasImage(text);//convert from PNG to WEBP here
 				
-				areaSelectionControler.updateRect();
+				//areaSelectionControler.updateRect();
 				rootDeck.showWidget(1);
 			}
 		}, true);
 		inputPanel.add(fileUpload);
-		
+		fileUpload.getFileUpload().setEnabled(false);
 		
 
 		
 	
 		
 		
-		editor = new ImageClipDataEditor(areaSelectionControler.getCanvas());
+		editor = new ImageClipDataEditor();
 		driver.initialize(editor);
 		
 		//VerticalPanel editorPanel=new VerticalPanel();
@@ -279,7 +291,7 @@ public class GWTClipImages implements EntryPoint {
 	    	addBt = new Button("Add",new ClickHandler() {
 			@Override
 			public void onClick(ClickEvent event) {
-				editor.updateRect(areaSelectionControler.getSelectionRect());
+				//editor.updateRect(areaSelectionControler.getSelectionRect());
 				ImageClipData addData=driver.flush();
 				
 				
@@ -293,7 +305,8 @@ public class GWTClipImages implements EntryPoint {
 				public void onClick(ClickEvent event) {
 					
 					
-					editor.updateRect(areaSelectionControler.getSelectionRect());
+					//editor.updateRect(areaSelectionControler.getSelectionRect());
+					
 					ImageClipData data=driver.flush();
 					
 					clearImageCashes(data);//remove old data
@@ -312,23 +325,9 @@ public class GWTClipImages implements EntryPoint {
 	    	updateAndNextBt = new Button("Update&Next",new ClickHandler() {
 				@Override
 				public void onClick(ClickEvent event) {
+					doUpdateAndNext();
 					
 					
-					editor.updateRect(areaSelectionControler.getSelectionRect());
-					ImageClipData data=driver.flush();
-					
-					clearImageCashes(data);//remove old data
-					
-					generateImages(data);
-					
-					
-					
-					clipImageList.updateAsync(data);//update no need update index
-					//unselect();
-					
-					for(ImageClipData nextData:getNextData(data).asSet()){
-						edit(nextData);
-					}
 					//listUpdate(); //unselect call update
 					
 				}
@@ -571,7 +570,7 @@ public class GWTClipImages implements EntryPoint {
 		
 		HorizontalPanel buttons2=new HorizontalPanel();
 		//root.add(buttons2);
-		
+		/*
 		Button clearRect=new Button("Clear Rect",new ClickHandler() {
 			@Override
 			public void onClick(ClickEvent event) {
@@ -580,6 +579,7 @@ public class GWTClipImages implements EntryPoint {
 			}
 		});
 		buttons2.add(clearRect);
+		*/
 		
 	
 		
@@ -604,6 +604,27 @@ public class GWTClipImages implements EntryPoint {
 			
 	}
 	
+	
+	protected void doUpdateAndNext() {
+		//no need
+		//editor.updateRect(areaSelectionControler.getSelectionRect());
+		
+		ImageClipData data=driver.flush();
+		
+		clearImageCashes(data);//remove old data
+		
+		generateImages(data);
+		
+		
+		
+		clipImageList.updateAsync(data);//update no need update index
+		//unselect();
+		
+		for(ImageClipData nextData:getNextData(data).asSet()){
+			edit(nextData);
+		}
+	}
+
 	protected Optional<ImageClipData> getNextData(ImageClipData data) {
 		int index=clipImageList.indexOf(data)+1;
 		if(index<clipImageList.size()){
@@ -690,9 +711,21 @@ public class GWTClipImages implements EntryPoint {
 			
 		});
 	}
+	
+	private ImageElement dummyImage;
 
 	private void generateImages(ImageClipData object) {
 		checkState(object.getImageData()!=null,"image is null & faild on generate image");
+		
+		/*
+		if(dummyImage==null){
+			Canvas canvas=CanvasUtils.createCanvas(100, 100);
+			CanvasUtils.fillRect(canvas, "#888");
+			dummyImage=ImageElementUtils.create(canvas.toDataUrl());
+		}
+		
+		ImageElement imageElement =dummyImage;
+		*/
 		
 		ImageElement imageElement = ImageElementUtils.create(object.getImageData());
 		
@@ -702,7 +735,10 @@ public class GWTClipImages implements EntryPoint {
 		String thumbImage=WebPBuilder.from(canvas).toDataUrl();
 		imageMap.put(object.getId(), thumbImage);
 		
-		if(object.getRect().hasWidthAndHeight()){
+		
+		
+		
+		if(object.getRects().size()>0){
 			
 			int canvasWidth=320;
 			int canvasHeight=180;
@@ -712,13 +748,15 @@ public class GWTClipImages implements EntryPoint {
 			
 			//TODO make method
 			
-			double[] wh=CanvasUtils.calculateFitSize(canvasWidth, canvasHeight, object.getRect().getWidth(), object.getRect().getHeight());
-			double ratio=wh[0]/object.getRect().getWidth();
+			Rect rec=object.getRects().get(0);
+			
+			double[] wh=CanvasUtils.calculateFitSize(canvasWidth, canvasHeight, rec.getWidth(), rec.getHeight());
+			double ratio=wh[0]/rec.getWidth();
 			int offX=(int)((canvasWidth-wh[0])/ratio);
 			int offY=(int)((canvasHeight-wh[1])/ratio);
 			canvas=CanvasUtils.createCanvas(getSharedCanvas(), canvasWidth,canvasHeight);
 			CanvasUtils.fillRect(canvas, "#000");
-			canvas.getContext2d().drawImage(imageElement,object.getRect().getX()-offX/2, object.getRect().getY()-offY/2,object.getRect().getWidth()+offX,object.getRect().getHeight()+offY, 0	, 0,canvasWidth,canvasHeight);
+			canvas.getContext2d().drawImage(imageElement,rec.getX()-offX/2, rec.getY()-offY/2,rec.getWidth()+offX,rec.getHeight()+offY, 0	, 0,canvasWidth,canvasHeight);
 			
 		
 			
@@ -727,14 +765,14 @@ public class GWTClipImages implements EntryPoint {
 			
 			//CanvasUtils.drawFitImage(canvas, imageElement, baseRect, CanvasUtils.ALIGN_RIGHT, CanvasUtils.VALIGN_BOTTOM);
 			
-			imageUrl=WebPBuilder.from(canvas).toDataUrl();;
-			imageMap.put(object.getId()+"cell", imageUrl);
+			String url=WebPBuilder.from(canvas).toDataUrl();;
+			imageMap.put(object.getId()+"cell", url);
 			
 			//create clip selected-image
-			canvas=CanvasUtils.createCanvas(getSharedCanvas(),object.getRect().getWidth(), object.getRect().getHeight());
-				canvas.getContext2d().drawImage(imageElement, -object.getRect().getX(), -object.getRect().getY());
+			canvas=CanvasUtils.createCanvas(getSharedCanvas(),rec.getWidth(), rec.getHeight());
+				canvas.getContext2d().drawImage(imageElement, -rec.getX(), -rec.getY());
 				
-				//ImageData clipData=canvas.getContext2d().getImageData(0, 0, object.getRect().getWidth(), object.getRect().getHeight());
+				//ImageData clipData=canvas.getContext2d().getImageData(0, 0, rec.getWidth(), rec.getHeight());
 				
 				ImageElement clipImage=ImageElementUtils.create(canvas.toDataUrl());
 				canvas=CanvasUtils.createCanvas(getSharedCanvas(),230,230);
@@ -751,6 +789,7 @@ public class GWTClipImages implements EntryPoint {
 		}else{
 			imageMap.put(object.getId()+"cell", thumbImage);//at least need image
 		}
+		
 	}
 	private void clearLargeImageDataFromMemory(ImageClipData element){
 		element.setImageData(null);
@@ -836,6 +875,7 @@ public class GWTClipImages implements EntryPoint {
 	}
 	
 
+	/*
 	private void setCanvasImage(String imageData){
 		imageUrl=imageData;
 		ImageElement imageElement = ImageElementUtils.create(imageUrl);
@@ -850,6 +890,7 @@ public class GWTClipImages implements EntryPoint {
 		areaSelectionControler.getCanvas().getElement().setAttribute("style", "background-image: url(\""+imageUrl+"\");");
 		areaSelectionControler.updateRect();
 	}
+	*/
 	
 	public static class BGSetter{
 		private BGSetter(){}
@@ -901,8 +942,10 @@ public class GWTClipImages implements EntryPoint {
 		@Override
 		public void readAll(){
 			//for test
-			if(debugSetting)
+			if(debugSetting){
+				debug=true;
 			showSettingWidget();
+			}
 			else
 				super.readAll();
 		}
@@ -942,7 +985,9 @@ public class GWTClipImages implements EntryPoint {
 		}
 		@Override
 		public void onReadAllEnd() {
+			LogUtils.log("read:"+size());
 			settingPanel.onReadAll();
+			fileUpload.getFileUpload().setEnabled(true);
 		}
 		
 		
@@ -976,6 +1021,8 @@ public class GWTClipImages implements EntryPoint {
 		public void onUpdateComplete(String fileName) {
 			clearImageData(fileName);
 		}
+
+
 
 	
 		
@@ -1034,6 +1081,7 @@ public class GWTClipImages implements EntryPoint {
 	private Button newBt;
 
 	private ClipImageSettingPanel settingPanel;
+	private FileUploadForm fileUpload;
 
 	//private CellListControlList<ImageClipData> updateCellListList;
 
@@ -1047,19 +1095,32 @@ public class GWTClipImages implements EntryPoint {
 		TextBox titleEditor;
 		TextArea descriptionEditor;
 		SimpleEditor<String> imageDataEditor;
-		SimpleEditor<Rect> rectEditor;
+		
+		
+		//SimpleEditor<Rect> rectEditor;
+		
+		RectListEditor rectsEditor;
+		
 		private VerticalPanel controler;
+		
 		
 		
 		public VerticalPanel getControler() {
 			return controler;
 		}
-		public ImageClipDataEditor(Canvas canvas){
+		public ImageClipDataEditor(){
 			super(Unit.PX);
+			HorizontalPanel top=new HorizontalPanel();
+			
+			VerticalPanel left=new VerticalPanel();
+			top.add(left);
+			VerticalPanel right=new VerticalPanel();
+			top.add(right);
 			
 			idEditor=new Label();
 			VerticalPanel main=new  VerticalPanel();
-			addNorth(main,120);
+			left.add(main);
+			addNorth(top,60);
 			main.add(idEditor);
 			
 			HorizontalPanel first=new HorizontalPanel();
@@ -1072,10 +1133,10 @@ public class GWTClipImages implements EntryPoint {
 			first.add(new Label("Title"));
 			titleEditor=new TextBox();
 			first.add(titleEditor);
-			main.add(new Label("Description"));
+			right.add(new Label("Description"));
 			descriptionEditor=new TextArea();
 			descriptionEditor.setWidth("400px");
-			main.add(descriptionEditor);
+			right.add(descriptionEditor);
 			
 			first.add(new Label("Image"));
 			FileUploadForm fileUpload=FileUtils.createSingleFileUploadForm(new DataURLListener() {
@@ -1086,14 +1147,28 @@ public class GWTClipImages implements EntryPoint {
 				public void uploaded(File file, String text) {
 					text=WebPBuilder.from(text).toDataUrl();
 					imageDataEditor.setValue(text);
-					setCanvasImage(text);
+					rectsEditor.setBackgroundImage(ImageElementUtils.create(text));
+					
 				}
 			}, true);
 			first.add(fileUpload);
 			
 			
 			imageDataEditor=SimpleEditor.of();
-			rectEditor=SimpleEditor.of();
+			rectsEditor=new RectListEditor();
+			
+			rectsEditor.getCanvas().addKeyUpHandler(new KeyUpHandler() {
+				
+				@Override
+				public void onKeyUp(KeyUpEvent event) {
+					if(event.getNativeKeyCode()==KeyCodes.KEY_ENTER){
+						doUpdateAndNext();
+					}else if(event.getNativeKeyCode()==' '){
+						rectsEditor.doPlus();
+					}
+				}
+			});
+			//rectEditor=SimpleEditor.of();
 			
 			controler=new VerticalPanel();
 			first.add(controler);
@@ -1101,7 +1176,7 @@ public class GWTClipImages implements EntryPoint {
 			
 			ScrollPanel scroll=new ScrollPanel();
 			add(scroll);
-			scroll.add(canvas);
+			scroll.add(rectsEditor);
 		}
 		@Override
 		public void setDelegate(EditorDelegate<ImageClipData> delegate) {
@@ -1121,14 +1196,15 @@ public class GWTClipImages implements EntryPoint {
 		@Override
 		public void setValue(final ImageClipData value) {
 			//need update canvas
-			value.getRect().copyTo(areaSelectionControler.getSelectionRect());
+			//value.getRect().copyTo(areaSelectionControler.getSelectionRect());
 			
 			if(value.getImageData()!=null){
 				checkState(false,"image must be null");
-				setCanvasImage(value.getImageData());
+				
+				rectsEditor.setBackgroundImage(ImageElementUtils.create(value.getImageData()));
 				
 			}else{
-				CanvasUtils.clearBackgroundImage(areaSelectionControler.getCanvas());
+				rectsEditor.clearBackgroundImage();
 				if(value.getId()!=null){//null means new data
 				//do read async read-background image for cut down consume memory
 				clipImageList.read(value.getId(), new ReadListener<ImageClipData>() {
@@ -1142,7 +1218,7 @@ public class GWTClipImages implements EntryPoint {
 					public void onRead(ImageClipData data) {
 						if(data.getImageData()!=null){
 							imageDataEditor.setValue(data.getImageData());
-							setCanvasImage(data.getImageData());
+							rectsEditor.setBackgroundImage(ImageElementUtils.create(data.getImageData()));
 						}
 					}
 				});
@@ -1154,10 +1230,16 @@ public class GWTClipImages implements EntryPoint {
 		
 		public void updateImageclipData(String value){
 			imageDataEditor.setValue(value);
+			rectsEditor.setBackgroundImage(ImageElementUtils.create(value));
+			rectsEditor.setValue(new ArrayList<Rect>());//for clear
+			//need reset rects?
 		}
+		
+		/*
 		public void updateRect(Rect rect){
 			rectEditor.setValue(rect.copy());
 		}
+		*/
 		
 		/*
 		public String getEditKey(){

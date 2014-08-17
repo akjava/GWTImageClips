@@ -1,5 +1,6 @@
 package com.akjava.gwt.clipimages.client;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.FileListListener;
@@ -7,23 +8,36 @@ import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.ReadListen
 import com.akjava.gwt.html5.client.download.HTML5Download;
 import com.akjava.gwt.html5.client.file.Blob;
 import com.akjava.gwt.html5.client.file.File;
+import com.akjava.gwt.html5.client.file.FileIOUtils;
+import com.akjava.gwt.html5.client.file.FileIOUtils.FileQuataAndUsageListener;
 import com.akjava.gwt.html5.client.file.FileIOUtils.ReadStringCallback;
 import com.akjava.gwt.html5.client.file.FileIOUtils.RemoveCallback;
+import com.akjava.gwt.html5.client.file.FileIOUtils.RequestPersitentFileQuotaListener;
 import com.akjava.gwt.html5.client.file.FileIOUtils.WriteCallback;
+import com.akjava.gwt.html5.client.file.FileSystem;
 import com.akjava.gwt.html5.client.file.FileUploadForm;
 import com.akjava.gwt.html5.client.file.FileUtils;
 import com.akjava.gwt.html5.client.file.FileUtils.DataArrayListener;
 import com.akjava.gwt.html5.client.file.Uint8Array;
 import com.akjava.gwt.html5.client.file.webkit.FileEntry;
 import com.akjava.gwt.jszip.client.JSZip;
+import com.akjava.gwt.lib.client.CanvasUtils;
+import com.akjava.gwt.lib.client.ImageElementUtils;
 import com.akjava.gwt.lib.client.JavaScriptUtils;
 import com.akjava.gwt.lib.client.LogUtils;
+import com.akjava.gwt.lib.client.experimental.ArrayTool;
 import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
+import com.akjava.gwt.lib.client.experimental.ExecuteButton;
+import com.akjava.gwt.lib.client.experimental.ImageBuilder;
 import com.akjava.gwt.lib.client.widget.cell.EasyCellTableObjects;
 import com.akjava.gwt.lib.client.widget.cell.HtmlColumn;
 import com.akjava.gwt.lib.client.widget.cell.SimpleCellTable;
+import com.akjava.lib.common.graphics.Rect;
+import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
+import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.core.client.JsArrayString;
+import com.google.gwt.dom.client.ImageElement;
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
@@ -45,6 +59,10 @@ private Button deleteUnusedDatasBt;
 private Button dumpAllBt;
 private Button cleanToTrashBt;
 private FileUploadForm restoreFileUpload;
+
+boolean extractAll=false;//TODO make checkboxs
+private Button remakeIndex;
+
 	public ClipImageSettingPanel(GWTClipImages app) {
 		
 		super(Unit.PX);
@@ -75,6 +93,41 @@ private FileUploadForm restoreFileUpload;
 				gwtClipImages.showMainWidget();
 			}
 		});
+		
+		
+		
+		mainPanel.add(new Label("Storage"));
+		Button givemeMore=new Button("give me more 10MB",new ClickHandler() {
+			
+			@Override
+			public void onClick(ClickEvent event) {
+				
+				FileIOUtils.getFileQuataAndUsage(true, new FileQuataAndUsageListener() {
+					@Override
+					public void storageInfoUsageCallback(double currentUsageInBytes, double currentQuotaInBytes) {
+						FileIOUtils.requestPersitentFileQuota(currentQuotaInBytes+(1024*1024*10), new RequestPersitentFileQuotaListener() {
+							
+							@Override
+							public void onError(String message, Object option) {
+								LogUtils.log(message+","+option);
+							}
+							
+							@Override
+							public void onAccepted(FileSystem fileSystem, double acceptedSize) {
+								LogUtils.log("accepted:"+","+acceptedSize);
+								//updateStorageInfo();
+								//TODO
+							}
+						});
+					}
+				});
+				
+			}
+		});
+		mainPanel.add(givemeMore);
+		
+		
+		
 		
 		Label trashbox=new Label("Trashbox");
 		mainPanel.add(trashbox);
@@ -204,6 +257,22 @@ private FileUploadForm restoreFileUpload;
 		});
 		clPanel.add(deleteUnusedDatasBt);
 		deleteUnusedDatasBt.setEnabled(false);//can do after load.
+		
+		remakeIndex = new Button("remakeIndex",new ClickHandler() {
+			@Override
+			public void onClick(ClickEvent event) {
+				boolean confirm=Window.confirm("really remake index?");
+				if(!confirm){
+					return;
+				}
+				
+				gwtClipImages.getClipImageList().remakeIndex();//TODO catch and clean
+				
+				
+			}
+		});
+		clPanel.add(remakeIndex);
+		
 		
 		Button deleteBrokenDataBt=new Button("delete broken datas",new ClickHandler() {
 			@Override
@@ -395,6 +464,174 @@ restoreFileUpload.setAccept("*.zip");
 		dumpButtons.add(new Label("Restore from Zip"));
 		dumpButtons.add(restoreFileUpload);
 		
+		
+		
+		Label openCvLabel=new Label("OpenCV tools");
+		mainPanel.add(openCvLabel);
+		
+		HorizontalPanel openCvButtons=new HorizontalPanel();
+		mainPanel.add(openCvButtons);
+		
+		openCvButtons.setVerticalAlignment(HorizontalPanel.ALIGN_MIDDLE);
+		
+		final VerticalPanel openCvLinks=new VerticalPanel();
+		mainPanel.add(openCvLinks);
+		
+		ExecuteButton openCvPosImages=new ExecuteButton("Extract Pos Datas",false){
+			@Override
+			public void executeOnClick() {
+
+				final Canvas sharedCanvas=Canvas.createIfSupported();
+				final JSZip zip=JSZip.newJSZip();
+				
+				final List<String> lines=new ArrayList<String>();
+				
+				doGetAllFile(new ReadAllFileListener() {
+					@Override
+					public void read(ImageClipData clipdata) {
+						if(clipdata.getRects().size()==0){
+							return;
+						}
+						String imageUrl=clipdata.getImageData();
+						if(extractAll){
+						
+						String fileName=clipdata.getId()+".jpg";
+						
+						
+						
+						
+						imageUrl=ImageBuilder.from(imageUrl).onJpeg().toDataUrl();//webp not support and png too big
+						zip.base64UrlFile(fileName, imageUrl);
+						
+						String line=fileName+" "+clipdata.getRects().size()+" ";
+						List<String> rectTexts=new ArrayList<String>();
+						for(Rect r:clipdata.getRects()){
+							rectTexts.add(r.toKanmaString().replace(",", " "));
+						}
+						line+=Joiner.on(" ").join(rectTexts);
+						lines.add(line);
+						}else{
+							ImageElement image=ImageElementUtils.create(imageUrl);
+							
+							for(Rect r:clipdata.getRects()){
+								String rinfo=r.toKanmaString().replace(",", "_");
+								String fileName=clipdata.getId()+"_"+rinfo+".jpg";
+								
+								//crop here
+								zip.base64UrlFile(fileName, ImageRectUtils.crop(image, r, sharedCanvas).toDataUrl("image/jpeg"));
+								String line=fileName+" 1 0 0 "+r.getWidth()+" "+r.getHeight();
+								lines.add(line);
+							}
+							
+							
+							
+							
+							
+						}
+					}
+					
+					@Override
+					public void error(String message) {
+						LogUtils.log(message);
+					}
+					
+					@Override
+					public void end() {
+						zip.file("info.txt", Joiner.on("\n").join(lines));
+						
+						dumpLinks.clear();
+						Blob blob=zip.generateBlob(null);
+						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-pos-images.zip","Download OpenCv pos-images",true);
+						openCvLinks.add(a);
+						setEnabled(true);
+					}
+				});
+				
+			}
+			
+		};
+		 
+		openCvButtons.add(openCvPosImages);
+		
+Button openCvBgImages=new Button("Extract Bg Datas",new ClickHandler() {
+			int imageIndex=0;
+			int maxImage=5000;
+			@Override
+			public void onClick(ClickEvent event) {
+				final Canvas imageCanvas=Canvas.createIfSupported();
+				final int size=512;
+				final Canvas clipCanvas=CanvasUtils.createCanvas(size, size);
+				final JSZip zip=JSZip.newJSZip();
+				
+				final List<String> lines=new ArrayList<String>();
+				
+				doGetAllFile(new ReadAllFileListener() {
+					@Override
+					public void read(ImageClipData clipdata) {
+						if(clipdata.getRects().size()==0 || imageIndex>=maxImage){
+							return;
+						}
+						String imageUrl=clipdata.getImageData();
+						
+						
+						
+						ImageElementUtils.copytoCanvas(imageUrl, imageCanvas);
+						for(int y=0;y<imageCanvas.getCoordinateSpaceHeight()/size;y++){
+							for(int x=0;x<imageCanvas.getCoordinateSpaceWidth()/size;x++){
+							Rect clipRect=new Rect(x*size,y*size,size,size);
+							boolean collisioned=false;
+							for(Rect r:clipdata.getRects()){
+								if(clipRect.collision(r)){
+									collisioned=true;
+									break;
+								}
+							}
+							if(!collisioned){
+								CanvasUtils.clear(clipCanvas);
+								//TODO generate method?
+								clipCanvas.getContext2d().drawImage(imageCanvas.getCanvasElement(), -clipRect.getX(), -clipRect.getY());
+								
+								String fileName=clipdata.getId()+"_"+x+"_"+y+".jpg";
+								
+								zip.base64UrlFile(fileName, clipCanvas.toDataUrl("image/jpeg"));
+								
+								lines.add(fileName);
+								
+								imageIndex++;
+								}
+							}
+						}
+						
+						
+						
+						
+						
+						
+						
+						
+					}
+					
+					@Override
+					public void error(String message) {
+						LogUtils.log(message);
+					}
+					
+					@Override
+					public void end() {
+						
+						List<String> shuffled=new ArrayTool<String>().shuffle(lines);//make good bg
+						zip.file("bg.txt", Joiner.on("\n").join(shuffled));
+						
+						dumpLinks.clear();
+						Blob blob=zip.generateBlob(null);
+						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-bg-images.zip","Download OpenCv bg-images",true);
+						openCvLinks.add(a);
+					}
+				});
+				
+			}
+		});
+		openCvButtons.add(openCvBgImages);
 	}
 	
 	private void doGetAllFile(final ReadAllFileListener allFileListener){

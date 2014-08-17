@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -91,6 +92,23 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 					removeCaller.startCall();
 				}
 			},null);
+		}
+		
+		
+		public void remakeIndex() {
+			final List<String> existFiles=Lists.newArrayList();
+			existFiles.add(INDEX_FILE_NAME);
+			existFiles.add(BACKUP_INDEX_FILE_NAME);
+			getAllFiles(new FileListListener() {
+				
+				@Override
+				public void files(List<String> fileNames) {
+					
+					Collections.sort(fileNames);
+					Collections.reverse(fileNames);
+					updateIndexAsync(Joiner.on("\n").join(fileNames));
+				}
+			}, existFiles);
 		}
 		
 		public void deleteUnusedFiles(){
@@ -357,8 +375,10 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		}
 		
 		public void updateIndexAsync(){
+			updateIndexAsync(createIndex());
+		}
+		protected void updateIndexAsync(final String indexText){
 			checkState(initialized);
-			final String indexText=createIndex();
 			//LogUtils.log("indexText:"+indexText);
 			//TODO check-space first
 			

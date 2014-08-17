@@ -1,19 +1,22 @@
 package com.akjava.gwt.clipimages.client;
 
+import java.util.List;
+
 import javax.annotation.Nullable;
 
 import com.akjava.lib.common.graphics.Rect;
+import com.google.common.collect.Lists;
 
 public class ImageClipData{
 		private String id;
 		public ImageClipData() {
-			this(null,null,new Rect(),null,null);
+			this(null,null,Lists.<Rect>newArrayList(),null,null);
 		}
-		public ImageClipData(@Nullable String id,@Nullable String title,Rect rect,@Nullable String imageData,@Nullable String description) {
+		public ImageClipData(@Nullable String id,@Nullable String title,List<Rect> rects,@Nullable String imageData,@Nullable String description) {
 			super();
 			this.id = id;
 			this.title = title;
-			this.rect=rect;
+			this.rects=rects;
 			this.imageData=imageData;
 			this.description=description;
 		}
@@ -30,12 +33,13 @@ public class ImageClipData{
 			this.title = title;
 		}
 		private String title;
-		private Rect rect;
-		public Rect getRect() {
-			return rect;
+		private List<Rect> rects;
+		
+		public List<Rect> getRects() {
+			return rects;
 		}
-		public void setRect(Rect rect) {
-			this.rect = rect;
+		public void setRects(List<Rect> rects) {
+			this.rects = rects;
 		}
 		public String getImageData() {
 			return imageData;
@@ -51,6 +55,9 @@ public class ImageClipData{
 		}
 		private String imageData;
 		private String description;
+		
+		
+		
 		@Override
 		public int hashCode() {
 			final int prime = 31;
@@ -58,7 +65,7 @@ public class ImageClipData{
 			result = prime * result + ((description == null) ? 0 : description.hashCode());
 			result = prime * result + ((id == null) ? 0 : id.hashCode());
 			result = prime * result + ((imageData == null) ? 0 : imageData.hashCode());
-			result = prime * result + ((rect == null) ? 0 : rect.hashCode());
+			result = prime * result + ((rects == null) ? 0 : rects.hashCode());
 			result = prime * result + ((title == null) ? 0 : title.hashCode());
 			return result;
 		}
@@ -86,10 +93,10 @@ public class ImageClipData{
 					return false;
 			} else if (!imageData.equals(other.imageData))
 				return false;
-			if (rect == null) {
-				if (other.rect != null)
+			if (rects == null) {
+				if (other.rects != null)
 					return false;
-			} else if (!rect.equals(other.rect))
+			} else if (!rects.equals(other.rects))
 				return false;
 			if (title == null) {
 				if (other.title != null)
@@ -98,7 +105,6 @@ public class ImageClipData{
 				return false;
 			return true;
 		}
-		
 		public String toString(){
 			return ""+getId()+",hash="+hashCode();
 		}

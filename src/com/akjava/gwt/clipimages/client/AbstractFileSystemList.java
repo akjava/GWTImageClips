@@ -13,7 +13,7 @@ public abstract class AbstractFileSystemList<T> extends  IndexBasedAsyncFileSyst
 		initialize();
 	}
 
-	boolean debug;
+	protected boolean debug;
 	
 
 	public void onLog(String log){
