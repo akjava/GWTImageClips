@@ -29,6 +29,7 @@ import com.akjava.gwt.lib.client.experimental.ArrayTool;
 import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
 import com.akjava.gwt.lib.client.experimental.ExecuteButton;
 import com.akjava.gwt.lib.client.experimental.ImageBuilder;
+import com.akjava.gwt.lib.client.experimental.RectCanvasUtils;
 import com.akjava.gwt.lib.client.widget.cell.EasyCellTableObjects;
 import com.akjava.gwt.lib.client.widget.cell.HtmlColumn;
 import com.akjava.gwt.lib.client.widget.cell.SimpleCellTable;
@@ -47,8 +48,10 @@ import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.Anchor;
 import com.google.gwt.user.client.ui.Button;
+import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
 import com.google.gwt.user.client.ui.HorizontalPanel;
+import com.google.gwt.user.client.ui.IntegerBox;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.VerticalPanel;
 
@@ -483,6 +486,9 @@ restoreFileUpload.setAccept("*.zip");
 		final VerticalPanel openCvLinks=new VerticalPanel();
 		mainPanel.add(openCvLinks);
 		
+		final CheckBox extractAll=new CheckBox("extract all");
+		openCvButtons.add(extractAll);
+		
 		ExecuteButton openCvPosImages=new ExecuteButton("Extract Pos Datas",false){
 			@Override
 			public void executeOnClick() {
@@ -499,7 +505,7 @@ restoreFileUpload.setAccept("*.zip");
 							return;
 						}
 						String imageUrl=clipdata.getImageData();
-						if(extractAll){
+						if(extractAll.getValue()){
 						
 						String fileName=clipdata.getId()+".jpg";
 						
@@ -524,7 +530,7 @@ restoreFileUpload.setAccept("*.zip");
 								String fileName=clipdata.getId()+"_"+rinfo+".jpg";
 								
 								//crop here
-								zip.base64UrlFile(fileName, ImageRectUtils.crop(image, r, sharedCanvas).toDataUrl("image/jpeg"));
+								zip.base64UrlFile(fileName, RectCanvasUtils.crop(image, r, sharedCanvas).toDataUrl("image/jpeg"));
 								String line=fileName+" 1 0 0 "+r.getWidth()+" "+r.getHeight();
 								lines.add(line);
 							}
@@ -565,12 +571,110 @@ restoreFileUpload.setAccept("*.zip");
 		 
 		openCvButtons.add(openCvPosImages);
 		
-		ExecuteButton openCvPosTurnedImages=new ExecuteButton("Extract Turned-Pos Datas",false){
-			boolean readed;
-			int total;
+		//only work not check extract all
+		ExecuteButton openCvHPosImages=new ExecuteButton("Extract Pos-H-Flip Datas",false){
 			@Override
 			public void executeOnClick() {
 
+				final Canvas sharedCanvas=Canvas.createIfSupported();
+				final JSZip zip=JSZip.newJSZip();
+				
+				final List<String> lines=new ArrayList<String>();
+				
+				doGetAllFile(new ReadAllFileListener() {
+					@Override
+					public void read(ImageClipData clipdata) {
+						if(clipdata.getRects().size()==0){
+							return;
+						}
+						String imageUrl=clipdata.getImageData();
+						if(extractAll.getValue()){
+							throw new RuntimeException("not support extract all mode");
+						/*
+						String fileName=clipdata.getId()+".jpg";
+						
+						
+						
+						
+						imageUrl=ImageBuilder.from(imageUrl).onJpeg().toDataUrl();//webp not support and png too big
+						zip.base64UrlFile(fileName, imageUrl);
+						
+						String line=fileName+" "+clipdata.getRects().size()+" ";
+						List<String> rectTexts=new ArrayList<String>();
+						for(Rect r:clipdata.getRects()){
+							rectTexts.add(r.toKanmaString().replace(",", " "));
+						}
+						line+=Joiner.on(" ").join(rectTexts);
+						lines.add(line);
+						*/
+						}else{
+							ImageElement image=ImageElementUtils.create(imageUrl);
+							
+							for(Rect r:clipdata.getRects()){
+								String rinfo=r.toKanmaString().replace(",", "_");
+								String fileName=clipdata.getId()+"_"+rinfo+"h.jpg";
+								
+								//crop here
+								String cropUrl= RectCanvasUtils.crop(image, r, sharedCanvas).toDataUrl();
+								
+								copyHorizontal(ImageElementUtils.create(cropUrl),sharedCanvas);
+								
+								zip.base64UrlFile(fileName,sharedCanvas.toDataUrl("image/jpeg"));
+								String line=fileName+" 1 0 0 "+r.getWidth()+" "+r.getHeight();
+								lines.add(line);
+							}
+							
+							
+							
+							
+							
+						}
+					}
+					
+					@Override
+					public void error(String message) {
+						LogUtils.log(message);
+					}
+					
+					@Override
+					public void end() {
+						zip.file("info.txt", Joiner.on("\n").join(lines));
+						
+						dumpLinks.clear();
+						Blob blob=zip.generateBlob(null);
+						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-pos-images.zip","Download OpenCv pos-images",true);
+						openCvLinks.add(a);
+						setEnabled(true);
+					}
+
+					@Override
+					public boolean isCancelld() {
+						// TODO Auto-generated method stub
+						return false;
+					}
+				});
+				
+			}
+			
+		};
+		 
+		openCvButtons.add(openCvHPosImages);
+		
+		final IntegerBox stepBox=new IntegerBox();
+		stepBox.setValue(15);
+		stepBox.setWidth("40px");
+		
+		openCvButtons.add(stepBox);
+		
+		ExecuteButton openCvPosTurnedImages=new ExecuteButton("Extract Turned-Pos Datas",false){
+			boolean readed;
+			int total;
+			int stepAngle=5;
+			@Override
+			public void executeOnClick() {
+
+				stepAngle=stepBox.getValue();
+				
 				final Canvas sharedCanvas=Canvas.createIfSupported();
 				final Canvas sharedCanvas2=Canvas.createIfSupported();
 				final JSZip zip=JSZip.newJSZip();
@@ -586,7 +690,7 @@ restoreFileUpload.setAccept("*.zip");
 						String imageUrl=clipdata.getImageData();
 						
 						double scale=0.9;
-						int stepAngle=5;
+						//int stepAngle=5;
 						int startAngle=-30;
 						int endAngle=30;
 						
@@ -603,7 +707,7 @@ restoreFileUpload.setAccept("*.zip");
 									String rinfo=r.toKanmaString().replace(",", "_");
 									String fileName=clipdata.getId()+"_"+rinfo+"_"+i+".jpg";
 									
-									Canvas clip=ImageRectUtils.crop(image, r.copy().expand(r.getWidth(), r.getHeight()), sharedCanvas);
+									Canvas clip=RectCanvasUtils.crop(image, r.copy().expand(r.getWidth(), r.getHeight()), sharedCanvas);
 									CanvasUtils.clear(sharedCanvas2);
 									CanvasUtils.drawCenter(sharedCanvas2, clip.getCanvasElement(), 0, 0, scale, scale, angle, 1);
 									
@@ -637,7 +741,7 @@ restoreFileUpload.setAccept("*.zip");
 						
 						dumpLinks.clear();
 						Blob blob=zip.generateBlob(null);
-						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-pos-turned-images.zip","Download OpenCv pos-turned-images",true);
+						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-pos-turned-images_step"+stepAngle+".zip","Download OpenCv pos-turned-images",true);
 						openCvLinks.add(a);
 						setEnabled(true);
 					}
@@ -663,7 +767,7 @@ restoreFileUpload.setAccept("*.zip");
 			public void executeOnClick() {
 
 				final Canvas imageCanvas=Canvas.createIfSupported();
-				final int size=512;
+				final int size=480;
 				final Canvas clipCanvas=CanvasUtils.createCanvas(size, size);
 				final JSZip zip=JSZip.newJSZip();
 				
@@ -700,7 +804,7 @@ restoreFileUpload.setAccept("*.zip");
 								//TODO generate method?
 								clipCanvas.getContext2d().drawImage(imageCanvas.getCanvasElement(), -clipRect.getX(), -clipRect.getY());
 								
-								String fileName=clipdata.getId()+"_"+x+"_"+y+".jpg";
+								String fileName=clipdata.getId()+"_"+(x*size)+"_"+(y*size)+"_"+size+"_"+size+".jpg";
 								
 								zip.base64UrlFile(fileName, clipCanvas.toDataUrl("image/jpeg"));
 								
@@ -778,7 +882,7 @@ restoreFileUpload.setAccept("*.zip");
 						
 						
 						for(Rect r:clipdata.getRects()){
-							ImageRectUtils.fill(r,sharedCanvas,"#000");
+							RectCanvasUtils.fill(r,sharedCanvas,"#000");
 						}
 						
 						zip.base64UrlFile(fileName, sharedCanvas.toDataUrl("image/jpeg"));
@@ -813,6 +917,38 @@ restoreFileUpload.setAccept("*.zip");
 		};
 		openCvButtons.add(openCvBgPaintImages);
 	}
+	//TODO move
+	public Canvas copyHorizontal(Canvas src,Canvas dest){
+		if(dest==null){
+			dest=Canvas.createIfSupported();
+		}
+		
+		CanvasUtils.copyTo(src, dest, false);
+		
+		dest.getContext2d().save();
+		
+		dest.getContext2d().translate(src.getCoordinateSpaceWidth(), 0); //flip horizontal
+		dest.getContext2d().scale(-1, 1);
+		dest.getContext2d().drawImage(src.getCanvasElement(), 0, 0);
+		dest.getContext2d().restore();
+		return dest;
+	}
+	public Canvas copyHorizontal(ImageElement src,Canvas dest){
+		if(dest==null){
+			dest=Canvas.createIfSupported();
+		}
+		
+		CanvasUtils.createCanvas(dest, src.getWidth(), src.getHeight());
+		
+		dest.getContext2d().save();
+		
+		dest.getContext2d().translate(src.getWidth(), 0); //flip horizontal
+		dest.getContext2d().scale(-1, 1);
+		dest.getContext2d().drawImage(src, 0, 0);
+		dest.getContext2d().restore();
+		return dest;
+	}
+	
 	
 	private void doGetAllFile(final ReadAllFileListener allFileListener){
 		gwtClipImages.getClipImageList().getAllFiles(new FileListListener() {
