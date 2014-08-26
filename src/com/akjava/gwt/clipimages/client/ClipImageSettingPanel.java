@@ -34,9 +34,11 @@ import com.akjava.gwt.lib.client.widget.cell.EasyCellTableObjects;
 import com.akjava.gwt.lib.client.widget.cell.HtmlColumn;
 import com.akjava.gwt.lib.client.widget.cell.SimpleCellTable;
 import com.akjava.lib.common.graphics.Rect;
+import com.akjava.lib.common.io.FileType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.gwt.canvas.client.Canvas;
+import com.google.gwt.canvas.dom.client.Context2d.Composite;
 import com.google.gwt.core.client.JsArrayString;
 import com.google.gwt.dom.client.ImageElement;
 import com.google.gwt.dom.client.Style.Unit;
@@ -53,6 +55,7 @@ import com.google.gwt.user.client.ui.DockLayoutPanel;
 import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.IntegerBox;
 import com.google.gwt.user.client.ui.Label;
+import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.VerticalPanel;
 
 public class ClipImageSettingPanel extends DockLayoutPanel {
@@ -853,6 +856,11 @@ restoreFileUpload.setAccept("*.zip");
 		};
 		openCvButtons.add(openCvBgImages);
 		
+		final TextBox paintGgColorBox=new TextBox();
+		paintGgColorBox.setText("#000");
+		final CheckBox transparentCheck=new CheckBox("Transparent");
+		final CheckBox exportAsPngCheck=new CheckBox("save as png");
+		
 		ExecuteButton openCvBgPaintImages=new ExecuteButton("Extract Paint Bg Datas",false){
 			
 			@Override
@@ -870,9 +878,15 @@ restoreFileUpload.setAccept("*.zip");
 						if(clipdata.getRects().size()==0){
 							return;
 						}
+						
+						FileType fileType=FileType.JPEG;
+						if(exportAsPngCheck.getValue()){
+							fileType=FileType.PNG;
+						}
+						
 						String imageUrl=clipdata.getImageData();
 						
-						String fileName=clipdata.getId()+".jpg";
+						String fileName=clipdata.getId()+"."+fileType.getExtension();
 						
 						
 						
@@ -880,12 +894,15 @@ restoreFileUpload.setAccept("*.zip");
 						
 						
 						
-						
-						for(Rect r:clipdata.getRects()){
-							RectCanvasUtils.fill(r,sharedCanvas,"#000");
+						sharedCanvas.getContext2d().save();
+						if(transparentCheck.getValue()){
+							sharedCanvas.getContext2d().setGlobalCompositeOperation(Composite.DESTINATION_OUT);
 						}
-						
-						zip.base64UrlFile(fileName, sharedCanvas.toDataUrl("image/jpeg"));
+						for(Rect r:clipdata.getRects()){
+							RectCanvasUtils.fill(r,sharedCanvas,paintGgColorBox.getValue());
+						}
+						sharedCanvas.getContext2d().restore();
+						zip.base64UrlFile(fileName, sharedCanvas.toDataUrl(fileType.getMimeType()));
 						
 						lines.add(fileName);
 						
@@ -916,6 +933,11 @@ restoreFileUpload.setAccept("*.zip");
 			}
 		};
 		openCvButtons.add(openCvBgPaintImages);
+		
+		openCvButtons.add(paintGgColorBox);
+		openCvButtons.add(transparentCheck);
+		openCvButtons.add(exportAsPngCheck);
+		openCvButtons.add(new Label());
 	}
 	//TODO move
 	public Canvas copyHorizontal(Canvas src,Canvas dest){
