@@ -473,7 +473,7 @@ restoreFileUpload = FileUtils.createSingleFileUploadForm(new DataArrayListener()
 		}, true,false);
 restoreFileUpload.setAccept("*.zip");
 		
-		dumpButtons.add(new Label("Restore from Zip"));
+		dumpButtons.add(new Label("Restore from Zip(warning not delete old data right now)"));
 		dumpButtons.add(restoreFileUpload);
 		
 		

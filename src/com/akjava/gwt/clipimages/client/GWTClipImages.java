@@ -1194,7 +1194,7 @@ public class GWTClipImages implements EntryPoint {
 					text=WebPBuilder.from(text).toDataUrl();
 					imageDataEditor.setValue(text);
 					rectsEditor.setBackgroundImage(ImageElementUtils.create(text));
-					
+					rectsEditor.getCanvas().setFocus(true);
 				}
 			}, true);
 			first.add(fileUpload);
@@ -1272,6 +1272,7 @@ public class GWTClipImages implements EntryPoint {
 				
 			}
 			
+			rectsEditor.getCanvas().setFocus(true);
 		}
 		
 		public void updateImageclipData(String value){
