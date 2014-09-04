@@ -1,5 +1,6 @@
 package com.akjava.gwt.clipimages.client;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +45,7 @@ import com.google.gwt.dom.client.ImageElement;
 import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
+import com.google.gwt.text.shared.Renderer;
 import com.google.gwt.user.cellview.client.CellTable;
 import com.google.gwt.user.cellview.client.TextColumn;
 import com.google.gwt.user.client.Timer;
@@ -56,6 +58,7 @@ import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.IntegerBox;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.TextBox;
+import com.google.gwt.user.client.ui.ValueListBox;
 import com.google.gwt.user.client.ui.VerticalPanel;
 
 public class ClipImageSettingPanel extends DockLayoutPanel {
@@ -100,7 +103,15 @@ private Button remakeIndex;
 			}
 		});
 		
-		
+		//test request temporaly
+		FileIOUtils.getFileQuataAndUsage(false, new FileQuataAndUsageListener() {
+
+			@Override
+			public void storageInfoUsageCallback(double currentUsageInBytes, double currentQuotaInBytes) {
+				LogUtils.log("temporaly:"+currentUsageInBytes+"/"+currentQuotaInBytes);
+			}
+			
+		});
 		
 		mainPanel.add(new Label("Storage"));
 		Button givemeMore=new Button("give me more 10MB",new ClickHandler() {
@@ -489,13 +500,20 @@ restoreFileUpload.setAccept("*.zip");
 		final VerticalPanel openCvLinks=new VerticalPanel();
 		mainPanel.add(openCvLinks);
 		
-		final CheckBox extractAll=new CheckBox("extract all");
+		
+		openCvButtons.add(new Label("export-image-type"));
+		final ToStringValueListBox<String> imageType=new ToStringValueListBox<String>(Lists.newArrayList("jpg","png","webp"));
+		openCvButtons.add(imageType);
+		
+		final CheckBox extractAll=new CheckBox("extract all(full image or clipped)");
 		openCvButtons.add(extractAll);
+		
+		
 		
 		ExecuteButton openCvPosImages=new ExecuteButton("Extract Pos Datas",false){
 			@Override
 			public void executeOnClick() {
-
+				final FileType fileType=FileType.getFileTypeByExtension(imageType.getValue());
 				final Canvas sharedCanvas=Canvas.createIfSupported();
 				final JSZip zip=JSZip.newJSZip();
 				
@@ -507,15 +525,18 @@ restoreFileUpload.setAccept("*.zip");
 						if(clipdata.getRects().size()==0){
 							return;
 						}
+						
+						
+						
 						String imageUrl=clipdata.getImageData();
 						if(extractAll.getValue()){
 						
-						String fileName=clipdata.getId()+".jpg";
+						String fileName=clipdata.getId()+"."+fileType.getExtension();
 						
 						
 						
 						
-						imageUrl=ImageBuilder.from(imageUrl).onJpeg().toDataUrl();//webp not support and png too big
+						imageUrl=ImageBuilder.from(imageUrl).on(fileType).toDataUrl();//webp not support and png too big
 						zip.base64UrlFile(fileName, imageUrl);
 						
 						String line=fileName+" "+clipdata.getRects().size()+" ";
@@ -530,10 +551,10 @@ restoreFileUpload.setAccept("*.zip");
 							
 							for(Rect r:clipdata.getRects()){
 								String rinfo=r.toKanmaString().replace(",", "_");
-								String fileName=clipdata.getId()+"_"+rinfo+".jpg";
+								String fileName=clipdata.getId()+"_"+rinfo+"."+fileType.getExtension();
 								
 								//crop here
-								zip.base64UrlFile(fileName, RectCanvasUtils.crop(image, r, sharedCanvas).toDataUrl("image/jpeg"));
+								zip.base64UrlFile(fileName, RectCanvasUtils.crop(image, r, sharedCanvas).toDataUrl(fileType.getMimeType()));
 								String line=fileName+" 1 0 0 "+r.getWidth()+" "+r.getHeight();
 								lines.add(line);
 							}
@@ -578,7 +599,8 @@ restoreFileUpload.setAccept("*.zip");
 		ExecuteButton openCvHPosImages=new ExecuteButton("Extract Pos-H-Flip Datas",false){
 			@Override
 			public void executeOnClick() {
-
+				final FileType fileType=FileType.getFileTypeByExtension(imageType.getValue());
+				
 				final Canvas sharedCanvas=Canvas.createIfSupported();
 				final JSZip zip=JSZip.newJSZip();
 				
@@ -592,14 +614,15 @@ restoreFileUpload.setAccept("*.zip");
 						}
 						String imageUrl=clipdata.getImageData();
 						if(extractAll.getValue()){
-							throw new RuntimeException("not support extract all mode");
-						/*
-						String fileName=clipdata.getId()+".jpg";
+							//throw new RuntimeException("not support extract all mode");
+						
+						String fileName=clipdata.getId()+"."+fileType.getExtension();
 						
 						
 						
-						
-						imageUrl=ImageBuilder.from(imageUrl).onJpeg().toDataUrl();//webp not support and png too big
+						if(fileType!=FileType.WEBP){//stored image url is webp no need to convert
+							imageUrl=ImageBuilder.from(imageUrl).on(fileType).toDataUrl();
+						}
 						zip.base64UrlFile(fileName, imageUrl);
 						
 						String line=fileName+" "+clipdata.getRects().size()+" ";
@@ -609,20 +632,20 @@ restoreFileUpload.setAccept("*.zip");
 						}
 						line+=Joiner.on(" ").join(rectTexts);
 						lines.add(line);
-						*/
+						
 						}else{
 							ImageElement image=ImageElementUtils.create(imageUrl);
 							
 							for(Rect r:clipdata.getRects()){
 								String rinfo=r.toKanmaString().replace(",", "_");
-								String fileName=clipdata.getId()+"_"+rinfo+"h.jpg";
+								String fileName=clipdata.getId()+"_"+rinfo+"h."+fileType.getExtension();
 								
 								//crop here
 								String cropUrl= RectCanvasUtils.crop(image, r, sharedCanvas).toDataUrl();
 								
 								copyHorizontal(ImageElementUtils.create(cropUrl),sharedCanvas);
 								
-								zip.base64UrlFile(fileName,sharedCanvas.toDataUrl("image/jpeg"));
+								zip.base64UrlFile(fileName,sharedCanvas.toDataUrl(fileType.getMimeType()));
 								String line=fileName+" 1 0 0 "+r.getWidth()+" "+r.getHeight();
 								lines.add(line);
 							}
@@ -675,7 +698,8 @@ restoreFileUpload.setAccept("*.zip");
 			int stepAngle=5;
 			@Override
 			public void executeOnClick() {
-
+				final FileType fileType=FileType.getFileTypeByExtension(imageType.getValue());
+				
 				stepAngle=stepBox.getValue();
 				
 				final Canvas sharedCanvas=Canvas.createIfSupported();
@@ -708,14 +732,14 @@ restoreFileUpload.setAccept("*.zip");
 									}
 									
 									String rinfo=r.toKanmaString().replace(",", "_");
-									String fileName=clipdata.getId()+"_"+rinfo+"_"+i+".jpg";
+									String fileName=clipdata.getId()+"_"+rinfo+"_"+i+"."+fileType.getExtension();
 									
 									Canvas clip=RectCanvasUtils.crop(image, r.copy().expand(r.getWidth(), r.getHeight()), sharedCanvas);
 									CanvasUtils.clear(sharedCanvas2);
 									CanvasUtils.drawCenter(sharedCanvas2, clip.getCanvasElement(), 0, 0, scale, scale, angle, 1);
 									
 									
-									zip.base64UrlFile(fileName, sharedCanvas2.toDataUrl("image/jpeg"));
+									zip.base64UrlFile(fileName, sharedCanvas2.toDataUrl(fileType.getMimeType()));
 									String line=fileName+" 1 0 0 "+r.getWidth()+" "+r.getHeight();
 									lines.add(line);
 									
@@ -768,7 +792,8 @@ restoreFileUpload.setAccept("*.zip");
 			int maxImage=20000;
 			@Override
 			public void executeOnClick() {
-
+				final FileType fileType=FileType.getFileTypeByExtension(imageType.getValue());
+				
 				final Canvas imageCanvas=Canvas.createIfSupported();
 				final int size=480;
 				final Canvas clipCanvas=CanvasUtils.createCanvas(size, size);
@@ -786,7 +811,7 @@ restoreFileUpload.setAccept("*.zip");
 						
 						List<Rect> expandRect=new ArrayList<Rect>();
 						for(Rect r:clipdata.getRects()){
-							expandRect.add(r.copy().expand(16, 16));
+							expandRect.add(r.copy().expand(16, 16));//to avoid close area.how ever this remove important area too
 						}
 						
 						
@@ -807,9 +832,9 @@ restoreFileUpload.setAccept("*.zip");
 								//TODO generate method?
 								clipCanvas.getContext2d().drawImage(imageCanvas.getCanvasElement(), -clipRect.getX(), -clipRect.getY());
 								
-								String fileName=clipdata.getId()+"_"+(x*size)+"_"+(y*size)+"_"+size+"_"+size+".jpg";
+								String fileName=clipdata.getId()+"_"+(x*size)+"_"+(y*size)+"_"+size+"_"+size+"."+fileType.getExtension();
 								
-								zip.base64UrlFile(fileName, clipCanvas.toDataUrl("image/jpeg"));
+								zip.base64UrlFile(fileName, clipCanvas.toDataUrl(fileType.getMimeType()));
 								
 								lines.add(fileName);
 								
@@ -858,15 +883,16 @@ restoreFileUpload.setAccept("*.zip");
 		
 		final TextBox paintGgColorBox=new TextBox();
 		paintGgColorBox.setText("#000");
-		final CheckBox transparentCheck=new CheckBox("Transparent");
-		final CheckBox exportAsPngCheck=new CheckBox("save as png");
+		final CheckBox transparentCheck=new CheckBox("Transparent(save as png)");
+		//final CheckBox exportAsPngCheck=new CheckBox("save as png");
 		
 		ExecuteButton openCvBgPaintImages=new ExecuteButton("Extract Paint Bg Datas",false){
 			
 			@Override
 			public void executeOnClick() {
 
-
+				final FileType fileType=transparentCheck.getValue()?FileType.PNG:FileType.getFileTypeByExtension(imageType.getValue());
+				
 				final Canvas sharedCanvas=Canvas.createIfSupported();
 				final JSZip zip=JSZip.newJSZip();
 				
@@ -879,10 +905,7 @@ restoreFileUpload.setAccept("*.zip");
 							return;
 						}
 						
-						FileType fileType=FileType.JPEG;
-						if(exportAsPngCheck.getValue()){
-							fileType=FileType.PNG;
-						}
+						
 						
 						String imageUrl=clipdata.getImageData();
 						
@@ -936,7 +959,7 @@ restoreFileUpload.setAccept("*.zip");
 		
 		openCvButtons.add(paintGgColorBox);
 		openCvButtons.add(transparentCheck);
-		openCvButtons.add(exportAsPngCheck);
+		
 		openCvButtons.add(new Label());
 	}
 	//TODO move
@@ -969,6 +992,34 @@ restoreFileUpload.setAccept("*.zip");
 		dest.getContext2d().drawImage(src, 0, 0);
 		dest.getContext2d().restore();
 		return dest;
+	}
+	
+	public class ToStringValueListBox<T> extends ValueListBox<T>{
+		public ToStringValueListBox(List<T> values) {
+			this();
+			setValue(values.get(0));
+			setAcceptableValues(values);
+		}
+		public ToStringValueListBox() {
+			super(new Renderer<T>(){
+
+				@Override
+				public String render(T object) {
+					if(object==null){
+						return null;
+					}
+					return object.toString();
+				}
+
+				@Override
+				public void render(T object, Appendable appendable) throws IOException {
+					
+				}
+				
+			});
+			// TODO Auto-generated constructor stub
+		}
+		
 	}
 	
 	

@@ -29,6 +29,7 @@ import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
 import com.akjava.gwt.lib.client.experimental.FileEntryOrdering;
 import com.akjava.gwt.lib.client.experimental.ImageBuilder.WebPBuilder;
 import com.akjava.gwt.lib.client.experimental.PreviewHtmlPanelControler;
+import com.akjava.gwt.lib.client.experimental.RectCanvasUtils;
 import com.akjava.gwt.lib.client.experimental.RectListEditor;
 import com.akjava.gwt.lib.client.widget.PanelUtils;
 import com.akjava.gwt.lib.client.widget.cell.SimpleContextMenu;
@@ -759,6 +760,7 @@ public class GWTClipImages implements EntryPoint {
 			
 			//TODO make method
 			
+			//in this here try to draw around
 			double[] wh=CanvasUtils.calculateFitSize(canvasWidth, canvasHeight, rec.getWidth(), rec.getHeight());
 			double ratio=wh[0]/rec.getWidth();
 			int offX=(int)((canvasWidth-wh[0])/ratio);
@@ -766,17 +768,19 @@ public class GWTClipImages implements EntryPoint {
 			canvas=CanvasUtils.createCanvas(getSharedCanvas(), canvasWidth,canvasHeight);
 			CanvasUtils.fillRect(canvas, "#000");
 			canvas.getContext2d().drawImage(imageElement,rec.getX()-offX/2, rec.getY()-offY/2,rec.getWidth()+offX,rec.getHeight()+offY, 0	, 0,canvasWidth,canvasHeight);
+			//String url=WebPBuilder.from(canvas).toDataUrl();
 			
-		
+			
 			
 			//TODO support fillRect
 			//canvas.getContext2d().fillRect(baseRect.getX(), baseRect.getY(),baseRect.getWidth(),baseRect.getHeight());
 			
 			//CanvasUtils.drawFitImage(canvas, imageElement, baseRect, CanvasUtils.ALIGN_RIGHT, CanvasUtils.VALIGN_BOTTOM);
 			
-			String url=WebPBuilder.from(canvas).toDataUrl();
 			
 			
+			RectCanvasUtils.crop(imageElement, rec, sharedCanvas);
+			String url=WebPBuilder.from(sharedCanvas).toDataUrl();//use exactly crop;
 			
 			if(imageMap.get(object.getId()+"clip")==null){//only do first time
 			//create clip selected-image
