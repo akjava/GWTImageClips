@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.DoneDeleteListener;
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.ReadListener;
@@ -24,9 +25,9 @@ import com.akjava.gwt.html5.client.file.webkit.FilePathCallback;
 import com.akjava.gwt.lib.client.CanvasUtils;
 import com.akjava.gwt.lib.client.ImageElementUtils;
 import com.akjava.gwt.lib.client.LogUtils;
-import com.akjava.gwt.lib.client.experimental.AreaSelectionControler;
 import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
 import com.akjava.gwt.lib.client.experimental.FileEntryOrdering;
+import com.akjava.gwt.lib.client.experimental.ImageBuilder;
 import com.akjava.gwt.lib.client.experimental.ImageBuilder.WebPBuilder;
 import com.akjava.gwt.lib.client.experimental.PreviewHtmlPanelControler;
 import com.akjava.gwt.lib.client.experimental.RectCanvasUtils;
@@ -36,6 +37,7 @@ import com.akjava.gwt.lib.client.widget.cell.SimpleContextMenu;
 import com.akjava.lib.common.graphics.Rect;
 import com.google.common.base.Converter;
 import com.google.common.base.Optional;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ForwardingList;
 import com.google.common.collect.Sets;
 import com.google.gwt.canvas.client.Canvas;
@@ -119,6 +121,7 @@ public class GWTClipImages implements EntryPoint {
 		return clipImageList;
 	}
 	
+	Stopwatch generateWatch=Stopwatch.createUnstarted();
 	public void onModuleLoad() {
 		
 		String token=History.getToken();
@@ -537,13 +540,15 @@ public class GWTClipImages implements EntryPoint {
 
 			@Override
 			public boolean add(ImageClipData element) {
+				generateWatch.start();
 				//add is only called when initial read,so clear image on here
 				generateImages(element);
+				generateWatch.stop();
 				clearLargeImageDataFromMemory(element);
 				boolean b= super.add(element);
 				
 				
-				listUpdate();//for cell-update on initialize
+				//listUpdate();//for cell-update on initialize
 				
 				return b;
 			}
@@ -721,10 +726,20 @@ public class GWTClipImages implements EntryPoint {
 	}
 	
 	private ImageElement dummyImage;
-
+	
+	
 	private void generateImages(ImageClipData object) {
 		checkState(object.getImageData()!=null,"image is null & faild on generate image");
 		
+		/*
+		 * inserting HD image take so much time;
+		imageMap.put(object.getId()+"clip", object.getImageData());
+		imageMap.put(object.getId()+"cell", object.getImageData());
+		
+		if(true){
+			return;
+		}
+		*/
 		/*
 		if(dummyImage==null){
 			Canvas canvas=CanvasUtils.createCanvas(100, 100);
@@ -738,10 +753,13 @@ public class GWTClipImages implements EntryPoint {
 		ImageElement imageElement = ImageElementUtils.create(object.getImageData());
 		
 		//make thumb
-		Canvas canvas=CanvasUtils.createCanvas(getSharedCanvas(), 230,128);
-		CanvasUtils.drawFitCenter(canvas, imageElement);
-		String thumbImage=WebPBuilder.from(canvas).toDataUrl();
-		imageMap.put(object.getId(), thumbImage);
+		Canvas generateImageCanvas=CanvasUtils.createCanvas(getSharedCanvas(), 230,128);//making field take slow
+		CanvasUtils.drawFitCenter(generateImageCanvas, imageElement);
+		
+		//from webp to png,jpeg not so effect.but jpeg 10% fast
+		//String thumbImage=WebPBuilder.from(generateImageCanvas).toDataUrl();
+		String thumbImage=ImageBuilder.from(generateImageCanvas).onJpeg().toDataUrl();
+		imageMap.put(object.getId(), thumbImage);//Webp is slow but cut down memory usage
 		
 		
 		
@@ -765,9 +783,9 @@ public class GWTClipImages implements EntryPoint {
 			double ratio=wh[0]/rec.getWidth();
 			int offX=(int)((canvasWidth-wh[0])/ratio);
 			int offY=(int)((canvasHeight-wh[1])/ratio);
-			canvas=CanvasUtils.createCanvas(getSharedCanvas(), canvasWidth,canvasHeight);
-			CanvasUtils.fillRect(canvas, "#000");
-			canvas.getContext2d().drawImage(imageElement,rec.getX()-offX/2, rec.getY()-offY/2,rec.getWidth()+offX,rec.getHeight()+offY, 0	, 0,canvasWidth,canvasHeight);
+			generateImageCanvas=CanvasUtils.createCanvas(getSharedCanvas(), canvasWidth,canvasHeight);
+			CanvasUtils.fillRect(generateImageCanvas, "#000");
+			generateImageCanvas.getContext2d().drawImage(imageElement,rec.getX()-offX/2, rec.getY()-offY/2,rec.getWidth()+offX,rec.getHeight()+offY, 0	, 0,canvasWidth,canvasHeight);
 			//String url=WebPBuilder.from(canvas).toDataUrl();
 			
 			
@@ -784,18 +802,18 @@ public class GWTClipImages implements EntryPoint {
 			
 			if(imageMap.get(object.getId()+"clip")==null){//only do first time
 			//create clip selected-image
-				canvas=CanvasUtils.createCanvas(getSharedCanvas(),rec.getWidth(), rec.getHeight());
-				canvas.getContext2d().drawImage(imageElement, -rec.getX(), -rec.getY());
+				generateImageCanvas=CanvasUtils.createCanvas(getSharedCanvas(),rec.getWidth(), rec.getHeight());
+				generateImageCanvas.getContext2d().drawImage(imageElement, -rec.getX(), -rec.getY());
 				
 				//ImageData clipData=canvas.getContext2d().getImageData(0, 0, rec.getWidth(), rec.getHeight());
 				
-				ImageElement clipImage=ImageElementUtils.create(canvas.toDataUrl());
-				canvas=CanvasUtils.createCanvas(getSharedCanvas(),230,230);
-				CanvasUtils.clear(canvas);
-				CanvasUtils.drawExpandCenter(canvas, clipImage);
+				ImageElement clipImage=ImageElementUtils.create(generateImageCanvas.toDataUrl());
+				generateImageCanvas=CanvasUtils.createCanvas(getSharedCanvas(),230,230);
+				CanvasUtils.clear(generateImageCanvas);
+				CanvasUtils.drawExpandCenter(generateImageCanvas, clipImage);
 				
 				
-				String selectionImage=WebPBuilder.from(canvas).toDataUrl();
+				String selectionImage=ImageBuilder.from(generateImageCanvas).onJpeg().toDataUrl();
 				imageMap.put(object.getId()+"clip", selectionImage);
 				
 				}
@@ -810,8 +828,8 @@ public class GWTClipImages implements EntryPoint {
 			}
 			//only this case join it.
 			if(object.getRects().size()>1){
-				joinHorizontal(thumbs,canvas);
-				imageMap.put(object.getId()+"cell", canvas.toDataUrl());
+				joinHorizontal(thumbs,generateImageCanvas);
+				imageMap.put(object.getId()+"cell", ImageBuilder.from(generateImageCanvas).onJpeg().toDataUrl());//JPEG to speed up
 			}
 			
 		}else{
@@ -983,7 +1001,7 @@ public class GWTClipImages implements EntryPoint {
 
 	private long readAllStart;
 	public final class ClipImageList extends AbstractFileSystemList<ImageClipData>{
-		
+		//Stopwatch watch;
 		public ClipImageList(String rootDir, List<ImageClipData> list, Converter<ImageClipData, String> converter) {
 			super(rootDir, list, converter);
 		}
@@ -996,8 +1014,10 @@ public class GWTClipImages implements EntryPoint {
 				debug=true;
 			showSettingWidget();
 			}
-			else
+			else{
+				//watch.createStarted();
 				super.readAll();
+			}
 		}
 		
 		
@@ -1035,9 +1055,12 @@ public class GWTClipImages implements EntryPoint {
 		}
 		@Override
 		public void onReadAllEnd() {
+			LogUtils.log("total-generate-image:"+generateWatch.elapsed(TimeUnit.MILLISECONDS)+"ms");
 			LogUtils.log("read:"+size()+",time="+((System.currentTimeMillis()-readAllStart)/1000)+" sec");
 			settingPanel.onReadAll();
 			fileUpload.getFileUpload().setEnabled(true);
+			
+			listUpdate();//only update on last.
 		}
 		
 		

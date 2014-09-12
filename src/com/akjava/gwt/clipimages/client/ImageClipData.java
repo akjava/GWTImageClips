@@ -53,7 +53,7 @@ public class ImageClipData{
 		public void setDescription(String description) {
 			this.description = description;
 		}
-		private String imageData;
+		private String imageData;//this called imageData is just data-url(webp)
 		private String description;
 		
 		

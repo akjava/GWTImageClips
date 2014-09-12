@@ -501,6 +501,8 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 			loaded=false;
 			readAll();
 		}
+		
+		boolean debugReadAll=false;//sometime index broken,for check
 		public void readAll(){
 			checkState(initialized);
 			checkState(!loaded && !loading);
@@ -523,8 +525,13 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 				
 				@Override
 				public void onReadString(String text, FileEntry file) {
-					//LogUtils.log("index-read:"+text);
+					if(debugReadAll){
+						LogUtils.log("index-read:"+text.length());
+					}
 					List<String> fileNames=Lists.newArrayList(text.split("\n"));
+					if(debugReadAll){
+						LogUtils.log("async-files:"+fileNames.size());
+					}
 					AsyncMultiCaller<String> caller=new AsyncMultiCaller<String>(fileNames) {
 						@Override
 						public void execAsync(final String fileName) {
@@ -563,7 +570,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 						
 						
 					};
-					caller.startCall(250);
+					caller.startCall(1);//no idea so slow
 					
 				}
 			});
