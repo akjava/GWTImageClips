@@ -28,6 +28,7 @@ import com.akjava.gwt.lib.client.LogUtils;
 import com.akjava.gwt.lib.client.experimental.AsyncMultiCaller;
 import com.akjava.gwt.lib.client.experimental.FileEntryOrdering;
 import com.akjava.gwt.lib.client.experimental.ImageBuilder;
+import com.akjava.gwt.lib.client.experimental.ProgressCanvas;
 import com.akjava.gwt.lib.client.experimental.ImageBuilder.WebPBuilder;
 import com.akjava.gwt.lib.client.experimental.PreviewHtmlPanelControler;
 import com.akjava.gwt.lib.client.experimental.RectCanvasUtils;
@@ -1045,9 +1046,20 @@ public class GWTClipImages implements EntryPoint {
 
 	private long readAllStart;
 	public final class ClipImageList extends AbstractFileSystemList<ImageClipData>{
+		private ProgressCanvas progressCanvas;
+
 		//Stopwatch watch;
 		public ClipImageList(String rootDir, List<ImageClipData> list, Converter<ImageClipData, String> converter) {
 			super(rootDir, list, converter);
+		}
+		
+		public void onReadAllStart(int size){
+			progressCanvas = new ProgressCanvas("Loading", size);
+			progressCanvas.show();
+			
+		}
+		public void onReadAllProgress(String fileName){
+			progressCanvas.progress(1);
 		}
 		
 		@Override
@@ -1099,6 +1111,9 @@ public class GWTClipImages implements EntryPoint {
 		}
 		@Override
 		public void onReadAllEnd() {
+			if(progressCanvas!=null){
+				progressCanvas.hide();
+			}
 			LogUtils.log("total-generate-image:"+generateWatch.elapsed(TimeUnit.MILLISECONDS)+"ms");
 			LogUtils.log("read:"+size()+",time="+((System.currentTimeMillis()-readAllStart)/1000)+" sec");
 			settingPanel.onReadAll();

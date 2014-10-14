@@ -503,6 +503,9 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 		}
 		
 		boolean debugReadAll=false;//sometime index broken,for check
+		
+		public void onReadAllStart(int size){}
+		public void onReadAllProgress(String fileName){}
 		public void readAll(){
 			checkState(initialized);
 			checkState(!loaded && !loading);
@@ -532,6 +535,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 					if(debugReadAll){
 						LogUtils.log("async-files:"+fileNames.size());
 					}
+					onReadAllStart(fileNames.size());
 					AsyncMultiCaller<String> caller=new AsyncMultiCaller<String>(fileNames) {
 						@Override
 						public void execAsync(final String fileName) {
@@ -549,6 +553,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 									setFileName(data, fileName);//need set filename on read
 									delegate().add(data);//simplly add list
 									done(fileName, true);
+									onReadAllProgress(fileName);
 									}catch(Exception e){
 										done(fileName,false);//TODO support faild action
 									}
