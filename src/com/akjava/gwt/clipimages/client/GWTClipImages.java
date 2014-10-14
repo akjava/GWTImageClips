@@ -659,12 +659,17 @@ public class GWTClipImages implements EntryPoint {
 	DockLayoutPanel fullDock;
 	 void showMainWidget(){
 		rootDeck.showWidget(0);
+		if(getSelection()!=null){
+			previewControler.show();
+		}
 	}
 	
 	private void showSettingWidget(){
+		previewControler.hide();
 		rootDeck.showWidget(3);
 	}
 	private void edit(ImageClipData data){
+		previewControler.hide();
 		driver.edit(data);
 		addBt.setEnabled(false);
 		updateBt.setEnabled(true);
