@@ -493,9 +493,13 @@ restoreFileUpload.setAccept("*.zip");
 		mainPanel.add(openCvLabel);
 		
 		HorizontalPanel openCvButtons=new HorizontalPanel();
-		mainPanel.add(openCvButtons);
-		
 		openCvButtons.setVerticalAlignment(HorizontalPanel.ALIGN_MIDDLE);
+		mainPanel.add(openCvButtons);
+		HorizontalPanel openCvButtons2=new HorizontalPanel();
+		openCvButtons2.setVerticalAlignment(HorizontalPanel.ALIGN_MIDDLE);
+		mainPanel.add(openCvButtons2);
+		
+		
 		
 		final VerticalPanel openCvLinks=new VerticalPanel();
 		mainPanel.add(openCvLinks);
@@ -594,6 +598,78 @@ restoreFileUpload.setAccept("*.zip");
 		};
 		 
 		openCvButtons.add(openCvPosImages);
+		
+		ExecuteButton openCvPosImages2=new ExecuteButton("Export Both Datas as info-format",false){
+			@Override
+			public void executeOnClick() {
+				final FileType fileType=FileType.getFileTypeByExtension(imageType.getValue());
+				final JSZip zip=JSZip.newJSZip();
+				
+				final List<String> lines=new ArrayList<String>();
+				
+				doGetAllFile(new ReadAllFileListener() {
+					@Override
+					public void read(ImageClipData clipdata) {
+						if(clipdata.getRects().size()==0){
+							//return;
+						}
+						
+						
+						
+						String imageUrl=clipdata.getImageData();
+						
+						String fileName=clipdata.getId()+"."+fileType.getExtension();
+						
+						
+						
+						
+						imageUrl=ImageBuilder.from(imageUrl).on(fileType).toDataUrl();//webp not support and png too big
+						zip.base64UrlFile(fileName, imageUrl);
+						
+						String line=fileName+" "+clipdata.getRects().size();
+						
+						if(clipdata.getRects().size()>0){
+							line+=" ";
+						}
+						
+						List<String> rectTexts=new ArrayList<String>();
+						for(Rect r:clipdata.getRects()){
+							rectTexts.add(r.toKanmaString().replace(",", " "));
+						}
+						line+=Joiner.on(" ").join(rectTexts);
+						
+						lines.add(line);
+						
+					}
+					
+					@Override
+					public void error(String message) {
+						LogUtils.log(message);
+					}
+					
+					@Override
+					public void end() {
+						zip.file("info.txt", Joiner.on("\n").join(lines));
+						
+						dumpLinks.clear();
+						Blob blob=zip.generateBlob(null);
+						Anchor a=new HTML5Download().generateDownloadLink(blob,"application/zip","opencv-pos-images.zip","Download OpenCv pos-images",true);
+						openCvLinks.add(a);
+						setEnabled(true);
+					}
+
+					@Override
+					public boolean isCancelld() {
+						// TODO Auto-generated method stub
+						return false;
+					}
+				});
+				
+			}
+			
+		};
+		 
+		openCvButtons2.add(openCvPosImages2);
 		
 		//only work not check extract all
 		ExecuteButton openCvHPosImages=new ExecuteButton("Extract Pos-H-Flip Datas",false){
