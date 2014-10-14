@@ -896,7 +896,7 @@ public class GWTClipImages implements EntryPoint {
 		
 		String thumbImage=getThumbImage(object);
 		
-		String selectionImage=getClipImage(object);
+		String clipImage=getClipImage(object);
 		
 		
 		
@@ -905,22 +905,22 @@ public class GWTClipImages implements EntryPoint {
 		
 		//thumb first
 		if(cssName.equals("preview")){
-			if(thumbImage!=null){
+			if(thumbImage!=null && !imageUrl.equals(thumbImage)){
 				sb.appendHtmlConstant("<img src='"+thumbImage+"' >");
 				}
 			
 		}
 		
 		//clip-second
-		if(imageUrl!=null){
+		if(imageUrl!=null ){
 		sb.appendHtmlConstant("<img src='"+imageUrl+"' >");
 		}
 		
 		if(cssName.equals("preview")){
 			
 			
-			if(selectionImage!=null){
-				sb.appendHtmlConstant("<img src='"+selectionImage+"' >");
+			if(clipImage!=null){//not show useless same-image(when not clipped)
+				sb.appendHtmlConstant("<img src='"+clipImage+"' >");
 				}
 			
 		//only preview need details
