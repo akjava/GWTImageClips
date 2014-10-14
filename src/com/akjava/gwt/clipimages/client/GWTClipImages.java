@@ -63,6 +63,7 @@ import com.google.gwt.user.client.History;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.Anchor;
 import com.google.gwt.user.client.ui.Button;
+import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.DeckLayoutPanel;
 import com.google.gwt.user.client.ui.DockLayoutPanel;
 import com.google.gwt.user.client.ui.HorizontalPanel;
@@ -93,7 +94,7 @@ public class GWTClipImages implements EntryPoint {
 
 
 	
-	private PreviewHtmlPanelControler previewControler;
+	private PreviewHtmlPanelControler<ImageClipData> previewControler;
 
 
 	private List<ImageClipData> rawList=new ArrayList<ImageClipData>();
@@ -129,17 +130,48 @@ public class GWTClipImages implements EntryPoint {
 			debugSetting=true;
 		}
 		
-		previewControler=new PreviewHtmlPanelControler();
-		Button showBt=new Button("Edit",new ClickHandler() {
+		previewControler=new PreviewHtmlPanelControler<ImageClipData>();
+		Button editBt=new Button("Edit",new ClickHandler() {
 			
 			@Override
 			public void onClick(ClickEvent event) {
 				edit(getSelection());
 			}
 		});
+		editBt.setWidth("100%");
 		previewControler.show();//for generate container
 		previewControler.hide();
-		previewControler.getContainer().add(showBt);
+		previewControler.getContainer().add(editBt);
+		
+		HorizontalPanel bts=new HorizontalPanel();
+		bts.setSpacing(4);
+		bts.setWidth("100%");
+		
+		previewControler.getContainer().add(bts);
+		
+		HorizontalPanel h2=new HorizontalPanel();
+		h2.setWidth("100%");
+		
+		h2.setHorizontalAlignment(HorizontalPanel.ALIGN_RIGHT);
+		final CheckBox check=new CheckBox("Without confirm");
+		bts.add(check);
+		bts.add(h2);
+		Button removeSelectionBt=new Button("Remove",new ClickHandler() {
+			
+			@Override
+			public void onClick(ClickEvent event) {
+				if(!check.getValue()){
+					boolean confirm=Window.confirm("Remove selection?");
+					if(!confirm){
+						return;
+					}
+				}
+				
+				doRemove(getSelection());
+			}
+		});
+		h2.add(removeSelectionBt);
+		
 		
 		Button hideBt=new Button("Hide",new ClickHandler() {
 			
@@ -149,6 +181,7 @@ public class GWTClipImages implements EntryPoint {
 			}
 		});
 		previewControler.getContainer().add(hideBt);
+		hideBt.setWidth("100%");
 		
 		rootDeck = new DeckLayoutPanel();
 		
@@ -349,36 +382,8 @@ public class GWTClipImages implements EntryPoint {
 				@Override
 				public void onClick(ClickEvent event) {
 					final ImageClipData targetData=driver.flush();//Update & Next ,change editor
-					clearImageCashes(targetData);//remove old data
+					doRemove(targetData);
 					
-					clipImageList.read(targetData.getId(), new ReadListener<ImageClipData>() {
-
-						@Override
-						public void onError(String message) {
-							LogUtils.log("maybe invalid json:"+message);
-							
-							clipImageList.remove(targetData);//call inside
-							
-							driver.edit(new ImageClipData());//clear
-							unselect();
-							listUpdate();
-							rootDeck.showWidget(0);//add case,need this
-						}
-
-						@Override
-						public void onRead(ImageClipData data) {
-							settingPanel.addTrashBox(data);
-							
-							clipImageList.remove(targetData);//call inside
-							
-							driver.edit(new ImageClipData());//clear
-							unselect();
-							listUpdate();
-							
-							rootDeck.showWidget(0);//add case,need this
-						}
-						
-					});
 				}
 			});
 	    	removeBt.setEnabled(false);
@@ -618,6 +623,40 @@ public class GWTClipImages implements EntryPoint {
 	}
 	
 	
+	protected void doRemove(final ImageClipData targetData) {
+		
+		clearImageCashes(targetData);//remove old data
+		
+		clipImageList.read(targetData.getId(), new ReadListener<ImageClipData>() {
+
+			@Override
+			public void onError(String message) {
+				LogUtils.log("maybe invalid json:"+message);
+				
+				clipImageList.remove(targetData);//call inside
+				
+				driver.edit(new ImageClipData());//clear
+				unselect();
+				listUpdate();
+				rootDeck.showWidget(0);//add case,need this
+			}
+
+			@Override
+			public void onRead(ImageClipData data) {
+				settingPanel.addTrashBox(data);
+				
+				clipImageList.remove(targetData);//call inside
+				
+				driver.edit(new ImageClipData());//clear
+				unselect();
+				listUpdate();
+				
+				rootDeck.showWidget(0);//add case,need this
+			}
+			
+		});
+	}
+
 	protected void doUpdateAndNext() {
 		//no need
 		//editor.updateRect(areaSelectionControler.getSelectionRect());
