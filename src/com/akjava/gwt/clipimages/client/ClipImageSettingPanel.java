@@ -57,6 +57,7 @@ import com.google.gwt.user.client.ui.DockLayoutPanel;
 import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.IntegerBox;
 import com.google.gwt.user.client.ui.Label;
+import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.ValueListBox;
 import com.google.gwt.user.client.ui.VerticalPanel;
@@ -87,11 +88,14 @@ private Button remakeIndex;
 		topPanel.add(appLabel);
 		
 		
+		
 		VerticalPanel mainPanel=new VerticalPanel();
-		add(mainPanel);
+		ScrollPanel scroll=new ScrollPanel(mainPanel);
+		add(scroll);
 		mainPanel.setSpacing(8);
 		
 		Button closeBt=new Button("Close");
+		closeBt.setWidth("400px");
 		
 		mainPanel.add(closeBt);
 		
