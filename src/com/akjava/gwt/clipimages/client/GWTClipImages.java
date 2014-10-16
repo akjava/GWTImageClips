@@ -1404,11 +1404,22 @@ public class GWTClipImages implements EntryPoint {
 	}
 
 	public void deleteAllFiles() {
+		deleteAllFiles(null);
+	}
+	public void deleteAllFiles(final DoneDeleteListener listener) {
+		
+		final ProgressCanvas progress=new ProgressCanvas("Delete all", 1);
+		progress.show();
 		clipImageList.deleteAllFiles(new DoneDeleteListener() {
 			@Override
 			public void done() {
 				rawList.clear();
 				listUpdate();
+				showMainWidget();
+				progress.hide();
+				if(listener!=null){
+					listener.done();
+				}
 			}
 		});
 	}

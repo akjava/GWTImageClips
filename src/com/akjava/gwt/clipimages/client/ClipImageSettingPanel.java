@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.DoneDeleteListener;
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.FileListListener;
 import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.ReadListener;
 import com.akjava.gwt.html5.client.download.HTML5Download;
@@ -287,9 +288,8 @@ private String createStorageLabel(double usage,double max){
 				if(!confirm){
 					return;
 				}
-				gwtClipImages.deleteAllFiles();
-				gwtClipImages.listUpdate();
-				gwtClipImages.showMainWidget();
+				gwtClipImages.deleteAllFiles();//async
+				restorePanel.reset();//useless
 				
 				
 			}
@@ -508,7 +508,7 @@ return h1;
 		replace.setStylePrimaryName("thinBorder");
 		panel.add(replace);
 		
-		Label replaceRectLabel=new Label("Replace Rects:");
+		Label replaceRectLabel=new Label("Replace Rects");
 		//replaceRectLabel.setStylePrimaryName("title");
 		replace.add(replaceRectLabel);
 		replace.add(rectReplaceUpload);
@@ -690,8 +690,62 @@ return h1;
 		dumpButtons.add(dumpAllBt);
 		
 		
-		
-	
+		restorePanel = new HasFileNameDataArrayFileUploadPanel("Restore from Zip"){
+
+			@Override
+			public void onUploaded(File file, final Uint8Array array) {
+				setEnabled(false);
+				gwtClipImages.deleteAllFiles(new DoneDeleteListener() {
+					@Override
+					public void done() {
+
+						final JSZip zip=JSZip.loadFromArray(array);
+						
+						JsArrayString files=zip.getFiles();
+						List<String> fileNameList=JavaScriptUtils.toList(files);
+						
+						final ProgressCanvas progress=new ProgressCanvas("Writing", fileNameList.size());
+						progress.show();
+						
+						AsyncMultiCaller<String> writeDatas=new AsyncMultiCaller<String>(fileNameList) {
+
+							@Override
+							public void doFinally(boolean cancelled) {
+								setEnabled(true);
+								progress.hide();
+								gwtClipImages.getClipImageList().reReadAll();//this call progress too
+								gwtClipImages.listUpdate();
+							}
+
+							@Override
+							public void execAsync(final String data) {
+								progress.progress(1);
+								String text=zip.getFile(data).asText();
+								gwtClipImages.getClipImageList().getFileSystem().updateData(data, text, new WriteCallback() {
+									
+									@Override
+									public void onError(String message, Object option) {
+										LogUtils.log("write-faild:"+data+","+message+","+option);
+										done(data,false);
+									}
+									
+									@Override
+									public void onWriteEnd(FileEntry file) {
+										done(data,true);
+									}
+								});
+							}
+							
+						};
+						writeDatas.startCall();
+					}
+				});//async
+				
+			}
+			
+		};
+		dumpButtons.add(restorePanel);
+	/*
 restoreFileUpload = FileUtils.createSingleFileUploadForm(new DataArrayListener() {
 		@Override
 		public void uploaded(File file, final Uint8Array array) {
@@ -749,10 +803,13 @@ restoreFileUpload = FileUtils.createSingleFileUploadForm(new DataArrayListener()
 		}
 			
 		}, true,false);
-restoreFileUpload.setAccept("*.zip");
+		restoreFileUpload.setAccept("*.zip");
+		*/
+restorePanel.getFileUploadForm().setAccept(FileUploadForm.ACCEPT_ZIP);
+
 		
-		dumpButtons.add(new Label("Restore from Zip(warning not delete old data right now)"));
-		dumpButtons.add(restoreFileUpload);
+		//dumpButtons.add(new Label("Restore from Zip(warning not delete old data right now)"));
+		//dumpButtons.add(restoreFileUpload);
 		
 		return dumpButtons;
 	}
@@ -1457,6 +1514,7 @@ restoreFileUpload.setAccept("*.zip");
 	private Label storageLabel;
 	private VerticalPanel opencvDownloadLinkPanel;
 	private Button dumpImages;
+	private HasFileNameDataArrayFileUploadPanel restorePanel;
 	
 	
 	private void addOpenCvDownloadZip(Blob blob,String fileName,String downloadLabel){

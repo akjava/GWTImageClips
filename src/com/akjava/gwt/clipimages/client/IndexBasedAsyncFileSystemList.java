@@ -66,11 +66,13 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 				@Override
 				public void files(List<String> fileNames) {
 					if(fileNames.size()==0){
+						listener.done();
 						return;
 					}
 					AsyncMultiCaller<String> removeCaller=new AsyncMultiCaller<String>(fileNames) {
 						@Override
 						public void execAsync(final String data) {
+							//LogUtils.log("exec-removeData:"+data);
 							fileSystem.removeData(data, new RemoveCallback() {
 								
 								@Override
@@ -81,7 +83,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 								
 								@Override
 								public void onRemoved() {
-									LogUtils.log("remove success from cleanup:"+data);
+									//LogUtils.log("remove success from cleanup:"+data);
 									done(data,true);
 								}
 							});
