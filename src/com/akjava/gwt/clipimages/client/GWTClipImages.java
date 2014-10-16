@@ -706,6 +706,7 @@ public class GWTClipImages implements EntryPoint {
 	
 	private void showSettingWidget(){
 		previewControler.hide();
+		settingPanel.updateStorageInfo();
 		rootDeck.showWidget(3);
 	}
 	private void edit(ImageClipData data){
@@ -773,7 +774,7 @@ public class GWTClipImages implements EntryPoint {
 	private ImageElement dummyImage;
 	
 	
-	private void generateImages(ImageClipData object) {
+	 void generateImages(ImageClipData object) {
 		checkState(object.getImageData()!=null,"image is null & faild on generate image");
 		
 		/*
@@ -902,7 +903,7 @@ public class GWTClipImages implements EntryPoint {
 		}
 	}
 	
-	private void clearLargeImageDataFromMemory(ImageClipData element){
+	 void clearLargeImageDataFromMemory(ImageClipData element){
 		element.setImageData(null);
 	}
 
@@ -1410,6 +1411,15 @@ public class GWTClipImages implements EntryPoint {
 				listUpdate();
 			}
 		});
+	}
+
+	public Optional<ImageClipData> findDataById(String fileName) {
+		for(ImageClipData data:clipImageList){
+			if(data.getId().equals(fileName)){
+				return Optional.of(data);
+			}
+		}
+		return Optional.absent();
 	}
 	
 	

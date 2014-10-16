@@ -226,7 +226,7 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 			FileIOUtils.getFileQuataAndUsage(true, new FileQuataAndUsageListener() {
 				@Override
 				public void storageInfoUsageCallback(double currentUsageInBytes, double currentQuotaInBytes) {
-					LogUtils.log("usage:"+((int)(currentUsageInBytes/1024/1204))+"Mbyte/"+((int)(currentQuotaInBytes/1024/1204))+"Mbyte");
+					LogUtils.log("usage:"+((int)(currentUsageInBytes/1024/1024))+"Mbyte/"+((int)(currentQuotaInBytes/1024/1024))+"Mbyte");
 				}
 			});
 		}
@@ -336,6 +336,13 @@ public abstract class IndexBasedAsyncFileSystemList<T> extends ForwardingList<T>
 					onUpdateComplete(fileName);
 					onDataUpdate();
 				}} );
+		}
+		
+		public void updateAsync(final T data,WriteCallback callback){
+			checkState(initialized);
+			checkNotNull(data);
+			final String fileName=getFileName(data);
+			fileSystem.updateData(fileName, converter.convert(data),callback);
 		}
 		
 		public void addAsync(final T data){
