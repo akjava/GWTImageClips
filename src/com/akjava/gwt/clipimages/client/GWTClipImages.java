@@ -15,9 +15,13 @@ import com.akjava.gwt.clipimages.client.IndexBasedAsyncFileSystemList.ReadListen
 import com.akjava.gwt.clipimages.client.custom.SimpleCellListResources;
 import com.akjava.gwt.html5.client.file.File;
 import com.akjava.gwt.html5.client.file.FileHandler;
+import com.akjava.gwt.html5.client.file.FileIOUtils;
 import com.akjava.gwt.html5.client.file.FileReader;
+import com.akjava.gwt.html5.client.file.FileSystem;
 import com.akjava.gwt.html5.client.file.FileUploadForm;
 import com.akjava.gwt.html5.client.file.FileUtils;
+import com.akjava.gwt.html5.client.file.FileIOUtils.FileQuataAndUsageListener;
+import com.akjava.gwt.html5.client.file.FileIOUtils.RequestPersitentFileQuotaListener;
 import com.akjava.gwt.html5.client.file.FileUtils.DataURLListener;
 import com.akjava.gwt.html5.client.file.ui.DropDockDataUrlRootPanel;
 import com.akjava.gwt.html5.client.file.webkit.FileEntry;
@@ -280,20 +284,20 @@ public class GWTClipImages implements EntryPoint {
 		rightPanel.setWidth("100%");
 		rightPanel.setHorizontalAlignment(HorizontalPanel.ALIGN_RIGHT);
 		
-		Anchor setting=new Anchor("Settings");
-		setting.addClickHandler(new ClickHandler() {
+		final Anchor settingLink=new Anchor("Settings");
+		settingLink.addClickHandler(new ClickHandler() {
 			
 			@Override
 			public void onClick(ClickEvent event) {
 				showSettingWidget();
 			}
 		});
-		rightPanel.add(setting);
+		rightPanel.add(settingLink);
 		
 		
 
 		
-		HorizontalPanel inputPanel=new HorizontalPanel();
+		final HorizontalPanel inputPanel=new HorizontalPanel();
 		inputPanel.setSpacing(8);
 		
 		fileUpload = FileUtils.createSingleFileUploadForm(new DataURLListener() {
@@ -564,7 +568,7 @@ public class GWTClipImages implements EntryPoint {
 				return rawList;
 			}};
 		
-		clipImageList = new ClipImageList("clipimage",onAddMakeImageList,new ImageClipDataConverter());
+		
 		
 		
 	    	
@@ -620,6 +624,48 @@ public class GWTClipImages implements EntryPoint {
 			
 			settingPanel = new ClipImageSettingPanel(this);
 			rootDeck.add(settingPanel);
+			
+			//the case initial
+			FileIOUtils.getFileQuataAndUsage(true, new FileQuataAndUsageListener() {
+				@Override
+				public void storageInfoUsageCallback(double currentUsageInBytes, double currentQuotaInBytes) {
+					if(currentQuotaInBytes==0){
+						final Button giveMe=new Button("Stroge is empty.Allow 10MB Storage");
+						giveMe.setStylePrimaryName("important");
+						
+						giveMe.addClickHandler(new ClickHandler() {
+							@Override
+							public void onClick(ClickEvent event) {
+								FileIOUtils.getFileQuataAndUsage(true, new FileQuataAndUsageListener() {
+									@Override
+									public void storageInfoUsageCallback(final double currentUsageInBytes, double currentQuotaInBytes) {
+										FileIOUtils.requestPersitentFileQuota(currentQuotaInBytes+(1024*1024*10), new RequestPersitentFileQuotaListener() {
+											
+											@Override
+											public void onError(String message, Object option) {
+												LogUtils.log("error:"+message+","+option);
+												//Window.Location.reload();//temporally
+											}
+											
+											@Override
+											public void onAccepted(FileSystem fileSystem, double acceptedSize) {
+												LogUtils.log("accepted:"+","+acceptedSize);
+												Window.Location.reload();
+											}
+										});
+									}
+								});
+							}
+						});
+						inputPanel.add(giveMe);
+						settingLink.setVisible(false);
+						
+					}else{
+						//initialize data-controler if storage permitted
+						clipImageList = new ClipImageList("clipimage",onAddMakeImageList,new ImageClipDataConverter());
+					}
+				}
+			});
 			
 	}
 	

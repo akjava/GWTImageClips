@@ -21,6 +21,11 @@ h1{
 	font-size:24px;
 }
 
+.important{
+	color:#800;
+	font-weight: bold;
+}
+
 .title{
 	color:#888;
 	font-weight: bold;
